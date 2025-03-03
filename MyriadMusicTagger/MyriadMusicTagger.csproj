@@ -28,10 +28,4 @@
         <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
         <PackageReference Include="ShellProgressBar" Version="5.2.0" />
     </ItemGroup>
-    <ItemGroup>
-      <None Update="fpcalc.exe">
-        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      </None>
-    </ItemGroup>
-
 </Project>
