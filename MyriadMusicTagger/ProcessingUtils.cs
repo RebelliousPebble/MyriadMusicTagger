@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 using AcoustID.Web;
 using MetaBrainz.MusicBrainz;
 using MetaBrainz.MusicBrainz.Interfaces.Entities;
-using Spectre.Console;
+using Terminal.Gui;
 
 namespace MyriadMusicTagger;
 
@@ -26,7 +26,7 @@ public class ProcessingUtils
       var fpcalcPath = EnsureFpcalcExists();
       if (string.IsNullOrEmpty(fpcalcPath))
       {
-         AnsiConsole.MarkupLine("[red]Could not locate or download fpcalc. Fingerprinting is not possible.[/]");
+         MessageBox.ErrorQuery("Error", "Could not locate or download fpcalc. Fingerprinting is not possible.", "OK");
          return new List<FingerprintMatch>();
       }
 
@@ -34,7 +34,7 @@ public class ProcessingUtils
       var fingerprintData = GetAudioFingerprint(fpcalcPath, path);
       if (fingerprintData == null)
       {
-         AnsiConsole.MarkupLine("[red]Failed to get audio fingerprint.[/]");
+         MessageBox.ErrorQuery("Error", "Failed to get audio fingerprint.", "OK");
          return new List<FingerprintMatch>();
       }
 
@@ -53,7 +53,7 @@ public class ProcessingUtils
 
       if (File.Exists(fpcalcPath)) return fpcalcPath;
 
-      AnsiConsole.MarkupLine("[yellow]fpcalc not found. Attempting to download...[/]");
+      MessageBox.Query("Info", "fpcalc not found. Attempting to download...", "OK");
 
       try
       {
@@ -61,11 +61,11 @@ public class ProcessingUtils
          var arch = GetSystemArchitecture();
          var downloadUrl = GetDownloadUrl(arch);
 
-         AnsiConsole.MarkupLine($"[blue]Downloading fpcalc for {arch} from {downloadUrl}[/]");
+         MessageBox.Query("Info", $"Downloading fpcalc for {arch} from {downloadUrl}", "OK");
 
          if (DownloadAndExtractFpcalc(downloadUrl, fpcalcPath))
          {
-            AnsiConsole.MarkupLine("[green]Successfully downloaded and extracted fpcalc[/]");
+            MessageBox.Query("Info", "Successfully downloaded and extracted fpcalc", "OK");
             return fpcalcPath;
          }
 
@@ -73,7 +73,7 @@ public class ProcessingUtils
       }
       catch (Exception ex)
       {
-         AnsiConsole.MarkupLine($"[red]Error downloading fpcalc: {ex.Message}[/]");
+         MessageBox.ErrorQuery("Error", $"Error downloading fpcalc: {ex.Message}", "OK");
          return string.Empty;
       }
    }
@@ -128,7 +128,7 @@ public class ProcessingUtils
 
          if (fpcalcEntry == null)
          {
-            AnsiConsole.MarkupLine("[red]Could not find fpcalc.exe in the downloaded archive[/]");
+            MessageBox.ErrorQuery("Error", "Could not find fpcalc.exe in the downloaded archive", "OK");
             return false;
          }
 
@@ -138,7 +138,7 @@ public class ProcessingUtils
       }
       catch (Exception ex)
       {
-         AnsiConsole.MarkupLine($"[red]Error during download/extraction: {ex.Message}[/]");
+         MessageBox.ErrorQuery("Error", $"Error during download/extraction: {ex.Message}", "OK");
          return false;
       }
       finally
@@ -160,7 +160,7 @@ public class ProcessingUtils
    /// </summary>
    private static FingerprintData? GetAudioFingerprint(string fpcalcPath, string audioFilePath)
    {
-      AnsiConsole.MarkupLine("[blue]Calculating audio fingerprint...[/]");
+      MessageBox.Query("Info", "Calculating audio fingerprint...", "OK");
 
       var proc = new Process
       {
@@ -198,7 +198,7 @@ public class ProcessingUtils
       }
       catch (Exception ex)
       {
-         AnsiConsole.MarkupLine($"[red]Error running fpcalc: {ex.Message}[/]");
+         MessageBox.ErrorQuery("Error", $"Error running fpcalc: {ex.Message}", "OK");
          return null;
       }
    }
@@ -208,7 +208,7 @@ public class ProcessingUtils
    /// </summary>
    private static List<FingerprintMatch> LookupRecordings(string fingerprint, int duration)
    {
-      AnsiConsole.MarkupLine("[blue]Looking up on MusicBrainz...[/]");
+      MessageBox.Query("Info", "Looking up on MusicBrainz...", "OK");
       var service = new LookupService();
       var matches = new List<FingerprintMatch>();
 
@@ -220,27 +220,27 @@ public class ProcessingUtils
          // Retry once if the first attempt fails
          if (results == null)
          {
-            AnsiConsole.MarkupLine("[yellow]First lookup attempt failed. Retrying...[/]");
+            MessageBox.Query("Info", "First lookup attempt failed. Retrying...", "OK");
             Thread.Sleep(200);
             results = service.GetAsync(fingerprint, duration, new[] { "recordingids" }).Result;
 
             if (results == null)
             {
-               AnsiConsole.MarkupLine("[red]Lookup failed after retry.[/]");
+               MessageBox.ErrorQuery("Error", "Lookup failed after retry.", "OK");
                return matches;
             }
          }
       }
       catch (Exception ex)
       {
-         AnsiConsole.MarkupLine($"[red]Error during AcoustID lookup: {ex.Message}[/]");
+         MessageBox.ErrorQuery("Error", $"Error during AcoustID lookup: {ex.Message}", "OK");
          return matches;
       }
 
       // Check for API errors
       if (!string.IsNullOrEmpty(results.ErrorMessage))
       {
-         AnsiConsole.MarkupLine($"[red]AcoustId API error: {results.ErrorMessage}[/]");
+         MessageBox.ErrorQuery("Error", $"AcoustId API error: {results.ErrorMessage}", "OK");
          return matches;
       }
 
@@ -253,7 +253,7 @@ public class ProcessingUtils
 
       if (topMatches.Count == 0)
       {
-         AnsiConsole.MarkupLine("[yellow]No matching recordings found.[/]");
+         MessageBox.Query("Info", "No matching recordings found.", "OK");
          return matches;
       }
 
@@ -271,7 +271,7 @@ public class ProcessingUtils
 
          foreach (var recording in match.Recordings.Take(MaxMatches - matches.Count))
          {
-            AnsiConsole.MarkupLine($"[blue]Looking up details for match with ID: {recording.Id}[/]");
+            MessageBox.Query("Info", $"Looking up details for match with ID: {recording.Id}", "OK");
             var details = GetRecordingDetails(recording.Id);
             if (details != null)
             {
@@ -295,7 +295,7 @@ public class ProcessingUtils
          // If we have a high confidence match, we can return early
          if (foundHighConfidenceMatch)
          {
-            AnsiConsole.MarkupLine("[green]Found high confidence match, stopping further lookups.[/]");
+            MessageBox.Query("Info", "Found high confidence match, stopping further lookups.", "OK");
             break;
          }
       }
@@ -320,7 +320,7 @@ public class ProcessingUtils
       }
       catch (Exception ex)
       {
-         AnsiConsole.MarkupLine($"[red]Error looking up recording details: {ex.Message}[/]");
+         MessageBox.ErrorQuery("Error", $"Error looking up recording details: {ex.Message}", "OK");
          return null;
       }
    }
