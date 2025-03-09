@@ -6,96 +6,177 @@ using RestSharp;
 using Serilog;
 using System.Text;
 using Spectre.Console;
+using Spectre.Console.Rendering;
 
-// Create a Program class to hold the static fields and methods
 public class Program
 {
-    // Store the last retrieved fingerprint matches to avoid redundant processing
     private static List<ProcessingUtils.FingerprintMatch> _lastFingerprints = new();
-    
-    // Store batch processing items
     private static List<BatchProcessItem> _batchProcessItems = new();
+    private static readonly Queue<int> _recentItems = new(capacity: 10);
 
     public static void Main(string[] args)
     {
-        using var log = new LoggerConfiguration().WriteTo.File("myriadConversionLog.log").MinimumLevel.Information()
-           .CreateLogger();
+        AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
+        {
+            var exception = (Exception)e.ExceptionObject;
+            Log.Error(exception, "Unhandled exception occurred");
+            AnsiConsole.MarkupLine("[red]An unexpected error occurred. Check the log file for details.[/]");
+            if (!e.IsTerminating)
+            {
+                AnsiConsole.MarkupLine("[yellow]Press any key to continue...[/]");
+                Console.ReadKey(true);
+            }
+        };
+
+        using var log = new LoggerConfiguration()
+            .WriteTo.File("log.txt")
+            .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
+            .MinimumLevel.Information()
+            .CreateLogger();
         Log.Logger = log;
         
-        // Set console encoding to UTF-8 for better display of special characters
         Console.OutputEncoding = Encoding.UTF8;
         
-        // Load settings from settings.json or create if it doesn't exist
         var settings = SettingsManager.LoadSettings();
         
-        // Apply settings
         Configuration.ClientKey = settings.AcoustIDClientKey;
         Query.DelayBetweenRequests = settings.DelayBetweenRequests;
         
-        // Create the REST client with proper base URL formatting
         var options = new RestClientOptions
         {
             BaseUrl = new Uri(settings.PlayoutApiUrl.TrimEnd('/'))
         };
         var Playoutv6Client = new RestClient(options);
         
-        // Main application loop
+        LoadRecentItems();
+        
         bool continueRunning = true;
         while (continueRunning)
         {
-            // Display application header
-            DisplayHeader();
-            
-            // Display main menu with options
-            var selection = AnsiConsole.Prompt(
-                new SelectionPrompt<string>()
-                    .Title("[green]Choose an option:[/]")
-                    .PageSize(10)
-                    .AddChoices(new[]
-                    {
-                        "Process single item",
-                        "Process batch of items",
-                        "Exit"
-                    }));
-
-            switch (selection)
+            try
             {
-                case "Process single item":
-                    ProcessSingleItem(Playoutv6Client, settings);
-                    break;
-                case "Process batch of items":
-                    ProcessBatchItems(Playoutv6Client, settings);
-                    break;
-                case "Exit":
-                    continueRunning = false;
-                    break;
+                DisplayHeader();
+                
+                var selection = AnsiConsole.Prompt(
+                    new SelectionPrompt<string>()
+                        .Title("[green]Choose an option:[/]")
+                        .PageSize(10)
+                        .AddChoices(new[]
+                        {
+                            "Process single item",
+                            "Process batch of items",
+                            "Recent items",
+                            "Help",
+                            "Exit"
+                        }));
+
+                switch (selection)
+                {
+                    case "Process single item":
+                        ProcessSingleItem(Playoutv6Client, settings);
+                        break;
+                    case "Process batch of items":
+                        ProcessBatchItems(Playoutv6Client, settings);
+                        break;
+                    case "Recent items":
+                        ProcessRecentItems(Playoutv6Client, settings);
+                        break;
+                    case "Help":
+                        ShowHelp();
+                        break;
+                    case "Exit":
+                        continueRunning = false;
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "An error occurred in the main loop");
+                AnsiConsole.MarkupLine($"[red]Error: {ex.Message}[/]");
+                AnsiConsole.MarkupLine("[yellow]Press any key to continue...[/]");
+                Console.ReadKey(true);
             }
         }
-        
-        AnsiConsole.MarkupLine("[green]Thank you for using Myriad Music Tagger![/]");
-        AnsiConsole.MarkupLine("[grey]Press any key to exit...[/]");
-        Console.ReadKey();
     }
 
-    // Process a single item (original functionality)
+    private static void ShowHelp()
+    {
+        AnsiConsole.Clear();
+        var helpPanel = CreatePanel(
+            new Rows(
+                new Text("• Use arrow keys to navigate menus"),
+                new Text("• Press Escape to go back in most menus"),
+                new Text("• Tab completion is available when entering paths"),
+                new Text("• Use Ctrl+C to cancel long-running operations"),
+                new Text(""),
+                new Text("For more information, visit:", new Style(Color.Yellow)),
+                new Text("https://github.com/RebelliousPebble/MyriadMusicTagger")
+            ),
+            "Help & Information",
+            Color.Blue
+        );
+        
+        AnsiConsole.Write(helpPanel);
+        WaitForKeyPress("Press any key to return to the main menu...");
+    }
+
+    private static void ProcessRecentItems(RestClient client, AppSettings settings)
+    {
+        if (_recentItems.Count == 0)
+        {
+            AnsiConsole.MarkupLine("[yellow]No recent items found[/]");
+            AnsiConsole.MarkupLine("[grey]Press any key to continue...[/]");
+            Console.ReadKey(true);
+            return;
+        }
+
+        var recentItemsList = _recentItems.Select(i => $"Item {i}").ToList();
+        recentItemsList.Add("Back to main menu");
+
+        var selection = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("[green]Select a recent item to process:[/]")
+                .PageSize(15)
+                .AddChoices(recentItemsList));
+
+        if (selection != "Back to main menu")
+        {
+            var itemNumber = int.Parse(selection.Split(' ')[1]);
+            ProcessItem(itemNumber, client, settings);
+        }
+    }
+
+    private static void LoadRecentItems()
+    {
+        _recentItems.Clear();
+    }
+
+    private static void AddToRecentItems(int itemNumber)
+    {
+        if (!_recentItems.Contains(itemNumber))
+        {
+            if (_recentItems.Count >= 10)
+            {
+                _recentItems.Dequeue();
+            }
+            _recentItems.Enqueue(itemNumber);
+        }
+    }
+
     static void ProcessSingleItem(RestClient client, AppSettings settings)
     {
-        // Get item number to process
         var item = GetItemNumberFromUser();
         if (!item.HasValue)
         {
             return;
         }
     
-        // Process the item
         ProcessItem(item.Value, client, settings);
         
-        // Wait for user to press a key before returning to menu
         AnsiConsole.MarkupLine("[grey]Press any key to return to the main menu...[/]");
         Console.ReadKey(true);
     }
 
-    // Display application header with title and version
     static void DisplayHeader()
     {
         Console.Clear();
@@ -104,14 +185,13 @@ public class Program
         AnsiConsole.Write(rule);
         AnsiConsole.WriteLine();
         
-        var table = new Table().Border(TableBorder.None);
+        var table = CreateTable(noBorder: true);
         table.AddColumn(new TableColumn("Description").Centered());
         table.AddRow("[yellow]Audio fingerprinting and metadata tagging tool[/]");
         AnsiConsole.Write(table);
         AnsiConsole.WriteLine();
     }
     
-    // Get item number from user with validation
     static int? GetItemNumberFromUser()
     {
         while (true)
@@ -130,161 +210,44 @@ public class Program
             {
                 return result;
             }
-            else
-            {
-                AnsiConsole.MarkupLine("[red]Invalid input. Please enter a valid number.[/]");
-            }
+            
+            AnsiConsole.MarkupLine("[red]Invalid input. Please enter a valid number.[/]");
         }
     }
     
-    // Process the media item
     static void ProcessItem(int itemNumber, RestClient client, AppSettings settings)
     {
         AnsiConsole.WriteLine();
         
-        // Step 1: Fetch item details from API
-        var request = new RestRequest("/api/Media/ReadItem")
-            .AddQueryParameter("mediaId", itemNumber.ToString())
-            .AddQueryParameter("attributesStationId", "-1")
-            .AddQueryParameter("additionalInfo", "Full")
-            .AddHeader("X-API-Key", settings.PlayoutReadKey);
-    
-        var ReadItemRestResponse = client.Get(request);
-    
-        if (ReadItemRestResponse.Content == null)
-        {
-            AnsiConsole.MarkupLine("[red]ERROR: API response was null[/]");
-            return;
-        }
-    
-        var ReadItemResponse = JsonConvert.DeserializeObject<MyriadMediaItem>(ReadItemRestResponse.Content)?.Result;
-    
-        if (ReadItemResponse == null)
-        {
-            AnsiConsole.MarkupLine("[red]ERROR: Failed to parse API response[/]");
-            return;
-        }
-    
-        // Save response to file
-        File.WriteAllText("item.json", JsonConvert.SerializeObject(ReadItemResponse, Formatting.Indented));
-    
-        // Display current item details
-        DisplayItemDetails(ReadItemResponse);
-    
-        // Step 2: Fingerprint the file and find matches
+        var request = CreateReadItemRequest(itemNumber, settings.PlayoutReadKey);
+        var response = client.Get(request);
+        var readItemResponse = ProcessApiResponse(response, "Failed to parse API response");
+        
+        if (readItemResponse == null) return;
+        
+        DisplayItemDetails(readItemResponse);
+        
         AnsiConsole.Status()
             .Spinner(Spinner.Known.Dots)
             .Start($"Processing item {itemNumber}...", ctx => 
             {
                 ctx.Status("Fingerprinting audio file...");
-                var pathToFile = ReadItemResponse.MediaLocation;
+                var pathToFile = readItemResponse.MediaLocation;
                 var matches = ProcessingUtils.Fingerprint(pathToFile);
     
                 if (matches.Count == 0)
                 {
-                    AnsiConsole.MarkupLine("[red]ERROR: No audio fingerprint matches found[/]");
+                    DisplayError("No audio fingerprint matches found");
                     return;
                 }
                 
-                // Parse existing metadata
-                var existingTitle = ReadItemResponse.Title ?? "";
-                var existingArtist = ReadItemResponse.Copyright?.Performer ?? "";
-                var parsedArtist = "";
-                var parsedTitle = "";
+                var (parsedArtist, parsedTitle) = ParseArtistAndTitle(
+                    readItemResponse.Title ?? "",
+                    readItemResponse.Copyright?.Performer ?? "");
                 
-                // Check if title is in "Artist - Title" format
-                var titleParts = existingTitle.Split(new[] { " - " }, StringSplitOptions.None);
-                if (titleParts.Length == 2)
-                {
-                    parsedArtist = titleParts[0].Trim();
-                    parsedTitle = titleParts[1].Trim();
-                }
-                else
-                {
-                    parsedTitle = existingTitle;
-                    parsedArtist = existingArtist;
-                }
-                
-                // Score each match based on similarity
-                var scoredMatches = matches.Select(m => {
-                    if (m.RecordingInfo == null) return (Match: m, Score: 0.0);
-                    
-                    var matchTitle = m.RecordingInfo.Title ?? "";
-                    var matchArtist = m.RecordingInfo.ArtistCredit?.FirstOrDefault()?.Name ?? "";
-                    
-                    // Start with acoustic fingerprint score as base
-                    double score = m.Score;
-                    
-                    // Calculate Levenshtein distance for title and artist
-                    double titleSimilarity = 0.0;
-                    double artistSimilarity = 0.0;
-                    
-                    // Compare titles (case insensitive)
-                    if (string.Equals(matchTitle, parsedTitle, StringComparison.OrdinalIgnoreCase))
-                    {
-                        titleSimilarity = 1.0;
-                    }
-                    else
-                    {
-                        var normalizedMatchTitle = matchTitle.ToLower();
-                        var normalizedParsedTitle = parsedTitle.ToLower();
-                        
-                        // Remove common extras like "(Original Version)", "(instrumental)", etc.
-                        normalizedMatchTitle = RemoveCommonExtras(normalizedMatchTitle);
-                        normalizedParsedTitle = RemoveCommonExtras(normalizedParsedTitle);
-                        
-                        if (string.Equals(normalizedMatchTitle, normalizedParsedTitle, StringComparison.OrdinalIgnoreCase))
-                        {
-                            titleSimilarity = 0.9; // Almost perfect match
-                        }
-                        else if (normalizedMatchTitle.Contains(normalizedParsedTitle) || 
-                                normalizedParsedTitle.Contains(normalizedMatchTitle))
-                        {
-                            titleSimilarity = 0.7; // Partial match
-                        }
-                        else
-                        {
-                            titleSimilarity = CalculateSimilarity(normalizedMatchTitle, normalizedParsedTitle);
-                        }
-                    }
-                    
-                    // Compare artists if we have artist information
-                    if (!string.IsNullOrEmpty(parsedArtist))
-                    {
-                        if (string.Equals(matchArtist, parsedArtist, StringComparison.OrdinalIgnoreCase))
-                        {
-                            artistSimilarity = 1.0;
-                        }
-                        else
-                        {
-                            var normalizedMatchArtist = matchArtist.ToLower();
-                            var normalizedParsedArtist = parsedArtist.ToLower();
-                            
-                            if (normalizedMatchArtist.Contains(normalizedParsedArtist) || 
-                                normalizedParsedArtist.Contains(normalizedMatchArtist))
-                            {
-                                artistSimilarity = 0.8;
-                            }
-                            else
-                            {
-                                artistSimilarity = CalculateSimilarity(normalizedMatchArtist, normalizedParsedArtist);
-                            }
-                        }
-                    }
-                    
-                    // Weighted scoring: 
-                    // - Acoustic fingerprint: 50%
-                    // - Title match: 30%
-                    // - Artist match: 20%
-                    score = (score * 0.5) + (titleSimilarity * 0.3) + (artistSimilarity * 0.2);
-                    
-                    return (Match: m, Score: score);
-                })
-                .OrderByDescending(m => m.Score)
-                .ToList();
-
-                // If we have a very good match (>90% confidence), use it directly
+                var scoredMatches = ScoreMatches(matches, parsedTitle, parsedArtist);
                 var bestMatch = scoredMatches.FirstOrDefault();
+                
                 if (bestMatch.Score > 0.9)
                 {
                     _lastFingerprints = new List<ProcessingUtils.FingerprintMatch> { bestMatch.Match };
@@ -292,12 +255,10 @@ public class Program
                     return;
                 }
                 
-                // Otherwise store all matches sorted by score
                 _lastFingerprints = scoredMatches.Select(m => m.Match).ToList();
                 ctx.Status("Multiple potential matches found");
             });
     
-        // Step 3: Let user select from the matches (only if we have multiple potential matches)
         var matchResult = _lastFingerprints.Count == 1 
             ? _lastFingerprints[0].RecordingInfo 
             : SelectFromMatches();
@@ -308,7 +269,80 @@ public class Program
         }
     }
     
-    // Helper method to calculate string similarity
+    private static (string Artist, string Title) ParseArtistAndTitle(string title, string fallbackArtist = "")
+    {
+        var titleParts = title?.Split(new[] { " - " }, StringSplitOptions.None) ?? Array.Empty<string>();
+        if (titleParts.Length == 2)
+        {
+            return (titleParts[0].Trim(), titleParts[1].Trim());
+        }
+        return (fallbackArtist, title ?? string.Empty);
+    }
+
+    private static void WaitForKeyPress(string message = "Press any key to continue...")
+    {
+        AnsiConsole.MarkupLine($"[grey]{message}[/]");
+        Console.ReadKey(true);
+    }
+
+    private static void DisplayError(string message, Exception? ex = null)
+    {
+        AnsiConsole.MarkupLine($"[red]ERROR: {Markup.Escape(message)}[/]");
+        if (ex != null)
+        {
+            Log.Error(ex, message);
+        }
+    }
+
+    private static RestRequest CreateReadItemRequest(int itemNumber, string readKey)
+    {
+        return new RestRequest("/api/Media/ReadItem")
+            .AddQueryParameter("mediaId", itemNumber.ToString())
+            .AddQueryParameter("attributesStationId", "-1")
+            .AddQueryParameter("additionalInfo", "Full")
+            .AddHeader("X-API-Key", readKey);
+    }
+
+    private static RestRequest CreateUpdateItemRequest(int itemNumber, string writeKey, MyriadTitleSchema titleUpdate)
+    {
+        var request = new RestRequest("/api/Media/SetItemTitling");
+        request.AddQueryParameter("mediaId", itemNumber.ToString());
+        request.AddHeader("X-API-Key", writeKey);
+        request.AddHeader("Content-Type", "application/json");
+        request.AddHeader("Accept", "application/json");
+        request.AddBody(JsonConvert.SerializeObject(titleUpdate, Formatting.None));
+        return request;
+    }
+
+    private static Result? ProcessApiResponse(RestResponse response, string errorMessage)
+    {
+        if (response.Content == null)
+        {
+            DisplayError("API response was null");
+            return null;
+        }
+
+        var result = JsonConvert.DeserializeObject<MyriadMediaItem>(response.Content)?.Result;
+        if (result == null)
+        {
+            DisplayError(errorMessage);
+            return null;
+        }
+
+        return result;
+    }
+
+    private static void HandleApiError(RestResponse response, string operation)
+    {
+        DisplayError($"Failed to {operation}");
+        AnsiConsole.MarkupLine($"[red]Error: {response.ErrorMessage ?? "Unknown error"}[/]");
+        if (!string.IsNullOrEmpty(response.Content))
+        {
+            AnsiConsole.MarkupLine("[red]Response Content:[/]");
+            AnsiConsole.WriteLine(response.Content);
+        }
+    }
+    
     private static double CalculateSimilarity(string str1, string str2)
     {
         if (string.IsNullOrEmpty(str1) || string.IsNullOrEmpty(str2)) return 0.0;
@@ -319,7 +353,6 @@ public class Program
         return 1.0 - ((double)distance / maxLength);
     }
     
-    // Compute Levenshtein distance between two strings
     private static int ComputeLevenshteinDistance(string str1, string str2)
     {
         int[,] matrix = new int[str1.Length + 1, str2.Length + 1];
@@ -343,7 +376,6 @@ public class Program
         return matrix[str1.Length, str2.Length];
     }
     
-    // Remove common extras from titles for better matching
     private static string RemoveCommonExtras(string title)
     {
         string[] commonExtras = new[] {
@@ -368,7 +400,6 @@ public class Program
         return result.Trim();
     }
     
-    // Let the user select from the list of matches
     static MetaBrainz.MusicBrainz.Interfaces.Entities.IRecording? SelectFromMatches()
     {
         AnsiConsole.WriteLine();
@@ -415,7 +446,6 @@ public class Program
                 }
             }
             
-            // Compare artists if we have artist information
             if (!string.IsNullOrEmpty(parsedArtist))
             {
                 if (string.Equals(matchArtist, parsedArtist, StringComparison.OrdinalIgnoreCase))
@@ -439,7 +469,6 @@ public class Program
                 }
             }
             
-            // Calculate final score using the same weights as in ProcessItem
             double score = (m.Score * 0.5) + (titleSimilarity * 0.3) + (artistSimilarity * 0.2);
             return (Match: m, Score: score);
         })
@@ -452,51 +481,39 @@ public class Program
             return null;
         }
     
-        // Display match count with pretty formatting
         var matchRule = new Rule($"[yellow]{scoredMatches.Count} possible matches found[/]");
         matchRule.Style = new Style(Color.Yellow);
         AnsiConsole.Write(matchRule);
         AnsiConsole.WriteLine();
     
-        // Create prompt for selection
         var selectionPrompt = new SelectionPrompt<string>()
             .Title("[green]Select the best match:[/]")
             .PageSize(15)
             .MoreChoicesText("[grey](Move up and down to see more matches)[/]");
     
-        // Add "none of these" option
         selectionPrompt.AddChoice("[red]None of these matches[/]");
     
-        // Create a dictionary to map selection text to match object
         var matchDictionary = new Dictionary<string, ProcessingUtils.FingerprintMatch>();
     
-        // Add all matches to the prompt
         foreach (var match in scoredMatches)
         {
             var recording = match.Match.RecordingInfo;
             if (recording == null) continue;
     
             string artistNames = recording.ArtistCredit?.Any() == true 
-                ? String.Join(", ", recording.ArtistCredit.Select(a => a.Name))
-                : "[no artist]";
+                ? String.Join(", ", recording.ArtistCredit.Select(a => Markup.Escape(a.Name ?? string.Empty)))
+                : "[grey]no artist[/]";
             
-            string releaseTitle = recording.Releases?.FirstOrDefault()?.Title ?? "[no album]";
+            string releaseTitle = recording.Releases?.FirstOrDefault()?.Title ?? "[grey]no album[/]";
             string confidence = (match.Score * 100).ToString("F0") + "%";
     
-            // Escape any [] characters in the strings to prevent markup parsing errors
-            string safeTitle = recording.Title?.Replace("[", "[[").Replace("]", "]]") ?? string.Empty;
-            string safeArtistNames = artistNames.Replace("[", "[[").Replace("]", "]]");
-            string safeReleaseTitle = releaseTitle.Replace("[", "[[").Replace("]", "]]");
-    
-            string displayText = $"{confidence} - {safeTitle} - {safeArtistNames} - {safeReleaseTitle}";
+            string displayText = $"{confidence} - {Markup.Escape(recording.Title ?? string.Empty)} - {artistNames} - {Markup.Escape(releaseTitle)}";
             selectionPrompt.AddChoice(displayText);
             matchDictionary[displayText] = match.Match;
         }
     
-        // Show the prompt and get user selection
         var selection = AnsiConsole.Prompt(selectionPrompt);
     
-        // Handle the selection
         if (selection == "[red]None of these matches[/]")
         {
             AnsiConsole.MarkupLine("[yellow]No match was selected.[/]");
@@ -506,7 +523,6 @@ public class Program
         {
             var selectedMatch = matchDictionary[selection];
             
-            // Display detailed information about the selected match
             if (selectedMatch.RecordingInfo != null)
             {
                 DisplayNewMetadata(selectedMatch.RecordingInfo);
@@ -516,74 +532,65 @@ public class Program
         }
     }
     
-    // Display current item details
     static void DisplayItemDetails(Result item)
     {
-        var panel = new Panel(new Table()
-            .AddColumn("Field")
+        var table = CreateTable();
+        table.AddColumn("Field")
             .AddColumn("Value")
-            .AddRow("Title", item.Title ?? "[not set]")
+            .AddRow("Title", Markup.Escape(item.Title ?? "[not set]"))
             .AddRow("Media ID", item.MediaId.ToString())
-            .AddRow("Duration", item.TotalLength ?? "[unknown]")
-            .AddRow("Artist", item.Copyright?.Performer ?? "[not set]")
-            .BorderColor(Color.Blue));
+            .AddRow("Duration", Markup.Escape(item.TotalLength ?? "[unknown]"))
+            .AddRow("Artist", Markup.Escape(item.Copyright?.Performer ?? "[not set]"));
         
-        panel.Header = new PanelHeader("Current Item Details");
-        panel.Border = BoxBorder.Rounded;
+        var panel = CreatePanel(table, "Current Item Details");
         panel.Expand = true;
         
         AnsiConsole.Write(panel);
         AnsiConsole.WriteLine();
     }
     
-    // Display new metadata found
     static void DisplayNewMetadata(MetaBrainz.MusicBrainz.Interfaces.Entities.IRecording recordingInfo)
     {
         var metadataTable = new Table()
             .AddColumn("Field")
             .AddColumn("Value")
-            .AddRow("Title", recordingInfo.Title ?? "[not found]");
+            .AddRow("Title", Markup.Escape(recordingInfo.Title ?? "[not found]"));
     
-        // Add artist information
         if (recordingInfo.ArtistCredit?.Any() == true)
         {
-            metadataTable.AddRow("Artist", recordingInfo.ArtistCredit.First().Name ?? "[unnamed artist]");
+            metadataTable.AddRow("Artist", Markup.Escape(recordingInfo.ArtistCredit.First().Name ?? "[unnamed artist]"));
             
             if (recordingInfo.ArtistCredit.Count > 1)
             {
                 for (int i = 1; i < recordingInfo.ArtistCredit.Count; i++)
                 {
-                    metadataTable.AddRow("Additional Artist", recordingInfo.ArtistCredit[i].Name ?? "[unnamed artist]");
+                    metadataTable.AddRow("Additional Artist", Markup.Escape(recordingInfo.ArtistCredit[i].Name ?? "[unnamed artist]"));
                 }
             }
         }
         else
         {
-            metadataTable.AddRow("Artist", "[no artist credit found]");
+            metadataTable.AddRow("Artist", "[grey]no artist credit found[/]");
         }
         
-        // Add disambiguation if available
         if (!string.IsNullOrEmpty(recordingInfo.Disambiguation))
         {
-            metadataTable.AddRow("Info", recordingInfo.Disambiguation);
+            metadataTable.AddRow("Info", Markup.Escape(recordingInfo.Disambiguation));
         }
         
-        // Add release information
         if (recordingInfo.Releases?.Any() == true)
         {
             var firstRelease = recordingInfo.Releases.First();
-            metadataTable.AddRow("Album", firstRelease.Title ?? "[unknown album]");
+            metadataTable.AddRow("Album", Markup.Escape(firstRelease.Title ?? "[unknown album]"));
             
-            // Fix for the PartialDate issue - check if date exists and isn't null
             if (firstRelease.Date != null)
             {
-                // Use ToString() without format as PartialDate might not be a complete date
-                metadataTable.AddRow("Release Date", firstRelease.Date.ToString());
+                metadataTable.AddRow("Release Date", Markup.Escape(firstRelease.Date.ToString()));
             }
         }
     
         var panel = new Panel(metadataTable);
-        panel.Header = new PanelHeader("Selected Metadata");
+        panel.Header = new PanelHeader("[yellow]Selected Metadata[/]");
         panel.Border = BoxBorder.Rounded;
         panel.BorderColor(Color.Green);
         panel.Expand = true;
@@ -592,7 +599,6 @@ public class Program
         AnsiConsole.WriteLine();
     }
     
-    // Ask if user wants to save changes
     static bool AskToSaveChanges()
     {
         return AnsiConsole.Prompt(
@@ -602,7 +608,6 @@ public class Program
                 .Equals("Yes", StringComparison.OrdinalIgnoreCase);
     }
     
-    // Save changes to Myriad
     static void SaveChangesToMyriad(int itemNumber, MetaBrainz.MusicBrainz.Interfaces.Entities.IRecording recordingInfo, RestClient client, AppSettings settings)
     {
         AnsiConsole.Status()
@@ -615,7 +620,6 @@ public class Program
                     Artists = recordingInfo.ArtistCredit?.Select(x => x.Name ?? string.Empty).ToList() ?? new List<string>()
                 };
 
-                // Display the data being sent
                 AnsiConsole.WriteLine();
                 var dataTable = new Table()
                     .AddColumn("Field")
@@ -629,29 +633,12 @@ public class Program
                 AnsiConsole.Write(dataTable);
                 AnsiConsole.WriteLine();
 
-                // Log the actual JSON being sent
-                var jsonData = JsonConvert.SerializeObject(titleUpdate, Formatting.None);
-                AnsiConsole.MarkupLine("[grey]Request JSON:[/]");
-                AnsiConsole.WriteLine(jsonData);
-                AnsiConsole.WriteLine();
-                
-                // Create request to match CURL structure
-                var request = new RestRequest("/api/Media/SetItemTitling");
-                request.AddQueryParameter("mediaId", itemNumber.ToString());
-                request.AddHeader("X-API-Key", settings.PlayoutWriteKey);
-                request.AddHeader("Content-Type", "application/json");
-                request.AddHeader("Accept", "application/json");
-                request.AddBody(jsonData);
-                
-
-                // Execute the request with POST method explicitly specified
+                var request = CreateUpdateItemRequest(itemNumber, settings.PlayoutWriteKey, titleUpdate);
                 var result = client.Execute(request, Method.Post);
     
                 if (result.IsSuccessful)
                 {
                     AnsiConsole.MarkupLine("[green]✓ Metadata successfully updated in Myriad system![/]");
-                    
-                    // Log the response if available
                     if (!string.IsNullOrEmpty(result.Content))
                     {
                         AnsiConsole.MarkupLine("[grey]Response:[/]");
@@ -660,22 +647,68 @@ public class Program
                 }
                 else
                 {
-                    AnsiConsole.MarkupLine("[red]✗ Failed to update metadata in Myriad system.[/]");
-                    AnsiConsole.MarkupLine($"[red]Error: {result.ErrorMessage ?? "Unknown error"}[/]");
-                    if (!string.IsNullOrEmpty(result.Content))
-                    {
-                        AnsiConsole.MarkupLine("[red]Response Content:[/]");
-                        AnsiConsole.WriteLine(result.Content);
-                        AnsiConsole.WriteLine($"[red]Request URL: {client.BuildUri(request)}[/]");
-                    }
+                    HandleApiError(result, "update metadata in Myriad system");
                 }
             });
     }
     
-    // New method for batch processing of items
+    private static BatchProcessItem CreateBatchItem(int itemNumber, Result response)
+    {
+        return new BatchProcessItem
+        {
+            ItemNumber = itemNumber,
+            OldTitle = response.Title ?? string.Empty,
+            OldArtist = response.Copyright?.Performer ?? string.Empty,
+            MediaLocation = response.MediaLocation
+        };
+    }
+
+    private static void ProcessBatchItem(BatchProcessItem item, ProgressTask currentTask)
+    {
+        if (string.IsNullOrEmpty(item.MediaLocation) || !File.Exists(item.MediaLocation))
+        {
+            item.Error = "Media file not found";
+            item.IsSelected = false;
+            return;
+        }
+        
+        currentTask.Description = $"[yellow]Fingerprinting item {item.ItemNumber}[/]";
+        currentTask.Increment(0.2);
+        
+        var matches = ProcessingUtils.Fingerprint(item.MediaLocation);
+        
+        if (matches.Count == 0)
+        {
+            item.Error = "No fingerprint matches found";
+            item.IsSelected = false;
+            item.AvailableMatches = new List<ProcessingUtils.FingerprintMatch>();
+            return;
+        }
+        
+        currentTask.Description = $"[yellow]Finding matches for item {item.ItemNumber}[/]";
+        currentTask.Increment(0.2);
+        
+        var bestMatch = ScoreMatches(matches, item.OldTitle, item.OldArtist).FirstOrDefault();
+        
+        if (bestMatch.Score > 0.8 && bestMatch.Match.RecordingInfo != null)
+        {
+            var recordingInfo = bestMatch.Match.RecordingInfo;
+            item.NewTitle = recordingInfo.Title ?? string.Empty;
+            item.NewArtist = string.Join(", ", recordingInfo.ArtistCredit?.Select(a => a.Name) ?? Array.Empty<string>());
+            item.IsSelected = true;
+            item.ConfidenceScore = bestMatch.Score;
+            item.RecordingInfo = recordingInfo;
+        }
+        else
+        {
+            item.IsSelected = false;
+            item.ConfidenceScore = bestMatch.Score;
+            item.AvailableMatches = matches;
+        }
+    }
+
     static void ProcessBatchItems(RestClient client, AppSettings settings)
     {
-        // Get start and end item numbers for the batch
         var startItem = AnsiConsole.Prompt(
             new TextPrompt<int>("[yellow]Enter the starting item number:[/]")
                 .PromptStyle("green")
@@ -692,10 +725,8 @@ public class Program
                     return ValidationResult.Success();
                 }));
         
-        // Clear previous batch items
         _batchProcessItems.Clear();
         
-        // Process each item in the range
         AnsiConsole.Progress()
             .AutoClear(false)
             .Columns(new ProgressColumn[]
@@ -706,190 +737,132 @@ public class Program
                 new RemainingTimeColumn(),
                 new SpinnerColumn()
             })
-            .Start(ctx =>
+            .Start(progressContext =>
             {
-                // Create a task for the overall progress
-                var mainTask = ctx.AddTask($"[green]Processing items {startItem} to {endItem}[/]", maxValue: endItem - startItem + 1);
+                var overallTask = progressContext.AddTask($"[green]Processing items {startItem} to {endItem}[/]", 
+                    maxValue: endItem - startItem + 1);
+                var currentTask = progressContext.AddTask("[yellow]Current operation[/]", maxValue: 1);
                 
                 for (int itemNumber = startItem; itemNumber <= endItem; itemNumber++)
                 {
-                    // Update the task description to show current item
-                    mainTask.Description = $"[green]Processing item {itemNumber} of {endItem}[/]";
+                    try
+                    {
+                        overallTask.Description = $"[green]Processing item {itemNumber} of {endItem}[/]";
+                        currentTask.Description = $"[yellow]Reading item {itemNumber}[/]";
+                        currentTask.Value = 0;
+                        
+                        var request = CreateReadItemRequest(itemNumber, settings.PlayoutReadKey);
+                        var response = client.Get(request);
+                        var readItemResponse = ProcessApiResponse(response, "Failed to parse API response");
+                        currentTask.Increment(0.2);
+                        
+                        if (readItemResponse == null)
+                        {
+                            _batchProcessItems.Add(new BatchProcessItem 
+                            { 
+                                ItemNumber = itemNumber,
+                                Error = "API response was null",
+                                IsSelected = false
+                            });
+                            continue;
+                        }
+                        
+                        var batchItem = CreateBatchItem(itemNumber, readItemResponse);
+                        ProcessBatchItem(batchItem, currentTask);
+                        _batchProcessItems.Add(batchItem);
+                        currentTask.Value = 1;
+                        
+                        AddToRecentItems(itemNumber);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, $"Error processing item {itemNumber}");
+                        _batchProcessItems.Add(new BatchProcessItem 
+                        { 
+                            ItemNumber = itemNumber,
+                            Error = $"Error: {ex.Message}",
+                            IsSelected = false
+                        });
+                    }
                     
-                    // Process the current item
-                    ProcessBatchItem(itemNumber, client, settings);
-                    
-                    // Increment the progress
-                    mainTask.Increment(1);
+                    overallTask.Increment(1);
                 }
             });
             
-        // Display the batch editing table
+        ShowBatchResults();
         ShowBatchEditTable(client, settings);
     }
-    
-    // Process a single item in batch mode
-    static void ProcessBatchItem(int itemNumber, RestClient client, AppSettings settings)
+
+    private static List<(ProcessingUtils.FingerprintMatch Match, double Score)> ScoreMatches(
+        List<ProcessingUtils.FingerprintMatch> matches, string existingTitle, string existingArtist)
     {
-        try
+        var parsedArtist = "";
+        var parsedTitle = "";
+        
+        var titleParts = existingTitle?.Split(new[] { " - " }, StringSplitOptions.None) ?? Array.Empty<string>();
+        if (titleParts.Length == 2)
         {
-            // Step 1: Fetch item details from API
-            var request = new RestRequest("/api/Media/ReadItem")
-                .AddQueryParameter("mediaId", itemNumber.ToString())
-                .AddQueryParameter("attributesStationId", "-1")
-                .AddQueryParameter("additionalInfo", "Full")
-                .AddHeader("X-API-Key", settings.PlayoutReadKey);
-        
-            var ReadItemRestResponse = client.Get(request);
-        
-            if (ReadItemRestResponse.Content == null)
-            {
-                _batchProcessItems.Add(new BatchProcessItem 
-                { 
-                    ItemNumber = itemNumber,
-                    Error = "API response was null",
-                    IsSelected = false
-                });
-                return;
-            }
-        
-            var ReadItemResponse = JsonConvert.DeserializeObject<MyriadMediaItem>(ReadItemRestResponse.Content)?.Result;
-        
-            if (ReadItemResponse == null)
-            {
-                _batchProcessItems.Add(new BatchProcessItem 
-                { 
-                    ItemNumber = itemNumber,
-                    Error = "Failed to parse API response",
-                    IsSelected = false
-                });
-                return;
-            }
-        
-            // Create batch process item
-            var batchItem = new BatchProcessItem
-            {
-                ItemNumber = itemNumber,
-                OldTitle = ReadItemResponse.Title ?? string.Empty,
-                OldArtist = ReadItemResponse.Copyright?.Performer ?? string.Empty,
-                MediaLocation = ReadItemResponse.MediaLocation
-            };
-            
-            // Check if file exists
-            if (string.IsNullOrEmpty(batchItem.MediaLocation) || !File.Exists(batchItem.MediaLocation))
-            {
-                batchItem.Error = "Media file not found";
-                batchItem.IsSelected = false;
-                _batchProcessItems.Add(batchItem);
-                return;
-            }
-            
-            // Fingerprint the file
-            var matches = ProcessingUtils.Fingerprint(batchItem.MediaLocation);
-            
-            if (matches.Count == 0)
-            {
-                batchItem.Error = "No fingerprint matches found";
-                batchItem.IsSelected = false;
-                batchItem.AvailableMatches = new List<ProcessingUtils.FingerprintMatch>();
-                _batchProcessItems.Add(batchItem);
-                return;
-            }
-            
-            // Parse existing metadata for better matching
-            var existingTitle = ReadItemResponse.Title ?? "";
-            var existingArtist = ReadItemResponse.Copyright?.Performer ?? "";
-            var parsedArtist = "";
-            var parsedTitle = "";
-            
-            // Check if title is in "Artist - Title" format
-            var titleParts = existingTitle.Split(new[] { " - " }, StringSplitOptions.None);
-            if (titleParts.Length == 2)
-            {
-                parsedArtist = titleParts[0].Trim();
-                parsedTitle = titleParts[1].Trim();
-            }
-            else
-            {
-                parsedTitle = existingTitle;
-                parsedArtist = existingArtist;
-            }
-            
-            // Score each match
-            var scoredMatches = matches.Select(m => {
-                if (m.RecordingInfo == null) return (Match: m, Score: 0.0);
-                
-                var matchTitle = m.RecordingInfo.Title ?? "";
-                var matchArtist = m.RecordingInfo.ArtistCredit?.FirstOrDefault()?.Name ?? "";
-                
-                // Start with acoustic fingerprint score as base
-                double score = m.Score;
-                
-                // Calculate similarity for title and artist
-                double titleSimilarity = CalculateStringSimilarity(matchTitle, parsedTitle);
-                double artistSimilarity = CalculateStringSimilarity(matchArtist, parsedArtist);
-                
-                // Weighted scoring
-                score = (score * 0.5) + (titleSimilarity * 0.3) + (artistSimilarity * 0.2);
-                
-                return (Match: m, Score: score);
-            })
-            .OrderByDescending(m => m.Score)
-            .ToList();
-            
-            // Use the best match if score is above threshold
-            var bestMatch = scoredMatches.FirstOrDefault();
-            if (bestMatch.Score > 0.8 && bestMatch.Match.RecordingInfo != null)
-            {
-                var recordingInfo = bestMatch.Match.RecordingInfo;
-                batchItem.NewTitle = recordingInfo.Title ?? string.Empty;
-                batchItem.NewArtist = string.Join(", ", recordingInfo.ArtistCredit?.Select(a => a.Name) ?? Array.Empty<string>());
-                batchItem.IsSelected = true;
-                batchItem.ConfidenceScore = bestMatch.Score;
-                batchItem.RecordingInfo = recordingInfo;
-            }
-            else
-            {
-                batchItem.IsSelected = false;
-                batchItem.ConfidenceScore = bestMatch.Score;
-                batchItem.AvailableMatches = matches;
-            }
-            
-            _batchProcessItems.Add(batchItem);
+            parsedArtist = titleParts[0].Trim();
+            parsedTitle = titleParts[1].Trim();
         }
-        catch (Exception ex)
+        else
         {
-            _batchProcessItems.Add(new BatchProcessItem 
-            { 
-                ItemNumber = itemNumber,
-                Error = $"Error processing: {ex.Message}",
-                IsSelected = false
-            });
+            parsedTitle = existingTitle ?? string.Empty;
+            parsedArtist = existingArtist ?? string.Empty;
         }
+        
+        return matches.Select(m => {
+            if (m.RecordingInfo == null) return (Match: m, Score: 0.0);
+            
+            var matchTitle = m.RecordingInfo.Title ?? "";
+            var matchArtist = m.RecordingInfo.ArtistCredit?.FirstOrDefault()?.Name ?? "";
+            
+            double score = m.Score;
+            
+            double titleSimilarity = CalculateStringSimilarity(matchTitle, parsedTitle);
+            double artistSimilarity = CalculateStringSimilarity(matchArtist, parsedArtist);
+            
+            score = (score * 0.5) + (titleSimilarity * 0.3) + (artistSimilarity * 0.2);
+            
+            return (Match: m, Score: score);
+        })
+        .OrderByDescending(m => m.Score)
+        .ToList();
     }
-    
-    // Helper method for string similarity calculation in batch processing
-    static double CalculateStringSimilarity(string str1, string str2)
+
+    static void ShowBatchResults()
     {
-        if (string.IsNullOrEmpty(str1) || string.IsNullOrEmpty(str2)) return 0.0;
+        var successCount = _batchProcessItems.Count(i => i.IsSelected && string.IsNullOrEmpty(i.Error));
+        var errorCount = _batchProcessItems.Count(i => !string.IsNullOrEmpty(i.Error));
+        var needsReviewCount = _batchProcessItems.Count(i => string.IsNullOrEmpty(i.Error) && !i.IsSelected);
         
-        // Normalize strings for comparison
-        string normalized1 = RemoveCommonExtras(str1.ToLower());
-        string normalized2 = RemoveCommonExtras(str2.ToLower());
+        var resultsPanel = CreatePanel(
+            new Rows(
+                new Markup($"[green]Successfully processed:[/] {successCount}"),
+                new Markup($"[yellow]Needs review:[/] {needsReviewCount}"),
+                new Markup($"[red]Errors:[/] {errorCount}")
+            ),
+            "Batch Processing Results",
+            Color.Blue
+        );
         
-        // Check for exact match
-        if (string.Equals(normalized1, normalized2, StringComparison.OrdinalIgnoreCase))
-            return 1.0;
-            
-        // Check for substring match
-        if (normalized1.Contains(normalized2) || normalized2.Contains(normalized1))
-            return 0.8;
-            
-        // Use Levenshtein distance for fuzzy matching
-        return 1.0 - ((double)ComputeLevenshteinDistance(normalized1, normalized2) / Math.Max(normalized1.Length, normalized2.Length));
+        AnsiConsole.Clear();
+        AnsiConsole.Write(resultsPanel);
+        AnsiConsole.WriteLine();
+        
+        if (errorCount > 0)
+        {
+            AnsiConsole.MarkupLine("[yellow]Some items encountered errors. You can review them in the batch edit table.[/]");
+        }
+        
+        if (needsReviewCount > 0)
+        {
+            AnsiConsole.MarkupLine("[blue]Some items need review. Use the batch edit table to select matches or edit metadata.[/]");
+        }
+        
+        WaitForKeyPress("Press any key to continue to the batch edit table...");
     }
-    
-    // Show batch edit table with all items
+
     static void ShowBatchEditTable(RestClient client, AppSettings settings)
     {
         if (_batchProcessItems.Count == 0)
@@ -905,12 +878,10 @@ public class Program
             AnsiConsole.Clear();
             DisplayHeader();
             
-            // Show summary counts
             int totalItems = _batchProcessItems.Count;
             int selectedItems = _batchProcessItems.Count(i => i.IsSelected);
             int itemsWithErrors = _batchProcessItems.Count(i => !string.IsNullOrEmpty(i.Error));
             
-            // Create a summary panel
             var summaryPanel = new Panel(
                 Align.Center(
                     new Markup($"[bold]Total Items:[/] {totalItems}  [bold]Selected:[/] [green]{selectedItems}[/]  [bold]Errors:[/] [red]{itemsWithErrors}[/]")
@@ -923,7 +894,6 @@ public class Program
             AnsiConsole.Write(summaryPanel);
             AnsiConsole.WriteLine();
             
-            // Create the batch items table
             var table = new Table()
                 .Border(TableBorder.Rounded)
                 .BorderColor(Color.Blue)
@@ -937,7 +907,6 @@ public class Program
                 .AddColumn(new TableColumn("Confidence").Centered())
                 .AddColumn(new TableColumn("Actions").Centered());
                 
-            // Populate the table
             foreach (var item in _batchProcessItems)
             {
                 string selectedMark = item.IsSelected ? "[green]✓[/]" : "[grey]□[/]";
@@ -946,7 +915,7 @@ public class Program
                 
                 if (!string.IsNullOrEmpty(item.Error))
                 {
-                    actions = $"[red]Error: {item.Error}[/]";
+                    actions = $"[red]Error: {Markup.Escape(item.Error)}[/]";
                 }
                 else if (item.AvailableMatches?.Count > 0 && string.IsNullOrEmpty(item.NewTitle))
                 {
@@ -960,10 +929,10 @@ public class Program
                 table.AddRow(
                     selectedMark,
                     item.ItemNumber.ToString(),
-                    item.OldTitle,
-                    item.OldArtist,
-                    item.NewTitle ?? string.Empty,
-                    item.NewArtist ?? string.Empty,
+                    Markup.Escape(item.OldTitle),
+                    Markup.Escape(item.OldArtist),
+                    Markup.Escape(item.NewTitle ?? string.Empty),
+                    Markup.Escape(item.NewArtist ?? string.Empty),
                     confidenceStr,
                     actions
                 );
@@ -971,7 +940,6 @@ public class Program
             
             AnsiConsole.Write(table);
             
-            // Display options
             AnsiConsole.WriteLine();
             var options = new List<string>
             {
@@ -1005,10 +973,8 @@ public class Program
         }
     }
     
-    // Edit a specific item in the batch
     static void EditBatchItem(RestClient client, AppSettings settings)
     {
-        // Prompt for item number
         var itemNumbers = _batchProcessItems.Select(i => i.ItemNumber).ToList();
         var itemNumber = AnsiConsole.Prompt(
             new SelectionPrompt<int>()
@@ -1016,47 +982,41 @@ public class Program
                 .PageSize(15)
                 .AddChoices(itemNumbers));
                 
-        // Find the selected item
         var item = _batchProcessItems.FirstOrDefault(i => i.ItemNumber == itemNumber);
         if (item == null) return;
         
-        // Display item details
         AnsiConsole.Clear();
         
         var detailsPanel = new Panel(new Rows(
             new Markup($"[bold]Item Number:[/] {item.ItemNumber}"),
-            new Markup($"[bold]Current Title:[/] {item.OldTitle}"),
-            new Markup($"[bold]Current Artist:[/] {item.OldArtist}")
+            new Markup($"[bold]Current Title:[/] {Markup.Escape(item.OldTitle)}"),
+            new Markup($"[bold]Current Artist:[/] {Markup.Escape(item.OldArtist)}")
         ))
         {
             Border = BoxBorder.Rounded,
-            Header = new PanelHeader("Item Details")
+            BorderStyle = new Style(Color.Blue),
+            Header = new PanelHeader("[yellow]Item Details[/]")
         };
         
         AnsiConsole.Write(detailsPanel);
         AnsiConsole.WriteLine();
         
-        // If there was an error with this item
         if (!string.IsNullOrEmpty(item.Error))
         {
-            AnsiConsole.MarkupLine($"[red]This item has an error: {item.Error}[/]");
+            AnsiConsole.MarkupLine($"[red]This item has an error: {Markup.Escape(item.Error)}[/]");
             AnsiConsole.MarkupLine("[yellow]You can manually enter metadata for this item.[/]");
             
-            // Allow manual entry
             ManuallyEditItem(item);
             return;
         }
         
-        // If we have available matches but none selected
         if ((string.IsNullOrEmpty(item.NewTitle) || string.IsNullOrEmpty(item.NewArtist)) && 
             item.AvailableMatches?.Count > 0)
         {
             AnsiConsole.MarkupLine("[yellow]No match has been automatically selected. Choose from available matches:[/]");
             
-            // Temporary store the fingerprint matches for the selection function
             _lastFingerprints = item.AvailableMatches;
             
-            // Let the user select a match
             var recordingInfo = SelectFromMatches();
             if (recordingInfo != null)
             {
@@ -1069,14 +1029,11 @@ public class Program
             }
         }
         
-        // Always allow manual edits
         ManuallyEditItem(item);
     }
     
-    // Manually edit item metadata
     static void ManuallyEditItem(BatchProcessItem item)
     {
-        // Show current values and allow editing
         item.NewTitle = AnsiConsole.Prompt(
             new TextPrompt<string>("[yellow]Enter title:[/]")
                 .DefaultValue(item.NewTitle ?? item.OldTitle)
@@ -1087,7 +1044,6 @@ public class Program
                 .DefaultValue(item.NewArtist ?? item.OldArtist)
                 .AllowEmpty());
                 
-        // Update selection based on whether we have data
         item.IsSelected = !string.IsNullOrEmpty(item.NewTitle) && !string.IsNullOrEmpty(item.NewArtist);
         
         if (item.IsSelected)
@@ -1099,15 +1055,12 @@ public class Program
             AnsiConsole.MarkupLine("[yellow]Item needs both title and artist to be selected for saving.[/]");
         }
         
-        // Wait for keypress
         AnsiConsole.MarkupLine("[grey]Press any key to continue...[/]");
         Console.ReadKey(true);
     }
     
-    // Toggle selection status for an item
     static void ToggleItemSelection()
     {
-        // Prompt for item number
         var itemNumbers = _batchProcessItems.Select(i => i.ItemNumber).ToList();
         var itemNumber = AnsiConsole.Prompt(
             new SelectionPrompt<int>()
@@ -1115,11 +1068,9 @@ public class Program
                 .PageSize(15)
                 .AddChoices(itemNumbers));
                 
-        // Find the selected item
         var item = _batchProcessItems.FirstOrDefault(i => i.ItemNumber == itemNumber);
         if (item == null) return;
         
-        // Cannot select items with errors or missing metadata
         if (!string.IsNullOrEmpty(item.Error) || string.IsNullOrEmpty(item.NewTitle) || string.IsNullOrEmpty(item.NewArtist))
         {
             AnsiConsole.MarkupLine("[red]This item cannot be selected because it has errors or missing metadata.[/]");
@@ -1127,22 +1078,18 @@ public class Program
         }
         else
         {
-            // Toggle selection
             item.IsSelected = !item.IsSelected;
             AnsiConsole.MarkupLine(item.IsSelected 
                 ? $"[green]Item {item.ItemNumber} is now selected.[/]" 
                 : $"[yellow]Item {item.ItemNumber} is now deselected.[/]");
         }
         
-        // Wait for keypress
         AnsiConsole.MarkupLine("[grey]Press any key to continue...[/]");
         Console.ReadKey(true);
     }
     
-    // Save all selected batch changes
     static void SaveBatchChanges(RestClient client, AppSettings settings)
     {
-        // Count selected items
         var selectedItems = _batchProcessItems.Where(i => i.IsSelected).ToList();
         var itemCount = selectedItems.Count;
         
@@ -1154,7 +1101,6 @@ public class Program
             return;
         }
         
-        // Confirm save
         var confirmSave = AnsiConsole.Prompt(
             new SelectionPrompt<string>()
                 .Title($"[yellow]Save changes to {itemCount} items in the Myriad system?[/]")
@@ -1162,7 +1108,6 @@ public class Program
                 
         if (!confirmSave) return;
         
-        // Process updates with progress bar
         AnsiConsole.Progress()
             .AutoClear(false)
             .Columns(new ProgressColumn[]
@@ -1184,22 +1129,13 @@ public class Program
                     
                     try
                     {
-                        // Create title update data
                         var titleUpdate = new MyriadTitleSchema
                         {
                             ItemTitle = item.NewTitle,
                             Artists = item.NewArtist.Split(',').Select(a => a.Trim()).ToList()
                         };
                         
-                        var jsonData = JsonConvert.SerializeObject(titleUpdate, Formatting.None);
-                        
-                        // Create request
-                        var request = new RestRequest("/api/Media/SetItemTitling");
-                        request.AddQueryParameter("mediaId", item.ItemNumber.ToString());
-                        request.AddHeader("X-API-Key", settings.PlayoutWriteKey);
-                        request.AddHeader("Content-Type", "application/json");
-                        request.AddHeader("Accept", "application/json");
-                        request.AddBody(jsonData);
+                        var request = CreateUpdateItemRequest(item.ItemNumber, settings.PlayoutWriteKey, titleUpdate);
                         
                         // Execute the request
                         var result = client.Execute(request, Method.Post);
@@ -1226,7 +1162,6 @@ public class Program
                 mainTask.Description = $"[green]Completed: {successCount} successful, {errorCount} failed[/]";
             });
             
-        // Display summary and wait
         if (_batchProcessItems.Any(i => !string.IsNullOrEmpty(i.Error)))
         {
             AnsiConsole.MarkupLine("[yellow]Some items had errors during saving. Review the batch table for details.[/]");
@@ -1240,41 +1175,57 @@ public class Program
         Console.ReadKey(true);
     }
     
-    // Ask if user wants to continue processing more items
-    static bool AskToContinue()
+    private static double CalculateStringSimilarity(string str1, string str2)
     {
-        AnsiConsole.WriteLine();
-        return AnsiConsole.Prompt(
-            new SelectionPrompt<string>()
-                .Title("[yellow]Would you like to process another item?[/]")
-                .AddChoices(new[] { "Yes", "No" }))
-                .Equals("Yes", StringComparison.OrdinalIgnoreCase);
+        if (string.IsNullOrEmpty(str1) || string.IsNullOrEmpty(str2)) return 0.0;
+        
+        string normalized1 = RemoveCommonExtras(str1.ToLower());
+        string normalized2 = RemoveCommonExtras(str2.ToLower());
+        
+        if (string.Equals(normalized1, normalized2, StringComparison.OrdinalIgnoreCase))
+            return 1.0;
+            
+        if (normalized1.Contains(normalized2) || normalized2.Contains(normalized1))
+            return 0.8;
+            
+        return 1.0 - ((double)ComputeLevenshteinDistance(normalized1, normalized2) / Math.Max(normalized1.Length, normalized2.Length));
+    }
+
+    private static Table CreateTable(string title = "", bool noBorder = false)
+    {
+        var table = new Table();
+        if (noBorder)
+        {
+            table.Border(TableBorder.None);
+        }
+        else
+        {
+            table.Border(TableBorder.Rounded)
+                .BorderColor(Color.Blue);
+        }
+        
+        if (!string.IsNullOrEmpty(title))
+        {
+            table.Title($"[yellow]{title}[/]");
+        }
+        
+        return table;
+    }
+
+    private static Panel CreatePanel(IRenderable content, string header = "", Color? borderColor = null)
+    {
+        var panel = new Panel(content)
+        {
+            Border = BoxBorder.Rounded,
+            Header = string.IsNullOrEmpty(header) ? null : new PanelHeader($"[yellow]{header}[/]")
+        };
+        
+        if (borderColor.HasValue)
+        {
+            panel.BorderStyle = new Style(borderColor.Value);
+        }
+        
+        return panel;
     }
 }
 
-// Class to represent an item in batch processing
-public class BatchProcessItem
-{
-    // Item identification
-    public int ItemNumber { get; set; }
-    public string MediaLocation { get; set; } = string.Empty;
-    
-    // Current metadata
-    public string OldTitle { get; set; } = string.Empty;
-    public string OldArtist { get; set; } = string.Empty;
-    
-    // New metadata
-    public string NewTitle { get; set; } = string.Empty;
-    public string NewArtist { get; set; } = string.Empty;
-    
-    // Processing state
-    public bool IsSelected { get; set; }
-    public double ConfidenceScore { get; set; }
-    public string Error { get; set; } = string.Empty;
-    
-    // Reference to the original recording info
-    public MetaBrainz.MusicBrainz.Interfaces.Entities.IRecording RecordingInfo { get; set; }
-    
-    // Available matches when no best match could be automatically selected
-    public List<ProcessingUtils.FingerprintMatch> AvailableMatches { get; set; } = new List<ProcessingUtils.FingerprintMatch>();
-}
