@@ -4,13 +4,19 @@ using System.Runtime.InteropServices;
 using AcoustID.Web;
 using MetaBrainz.MusicBrainz;
 using MetaBrainz.MusicBrainz.Interfaces.Entities;
-using Spectre.Console;
+using Serilog; // Added Serilog for logging
 
 namespace MyriadMusicTagger;
 
 public class ProcessingUtils
 {
-   private const string FpcalcExecutableName = "fpcalc.exe";
+    public class ProcessingException : Exception
+    {
+        public ProcessingException(string message) : base(message) { }
+        public ProcessingException(string message, Exception innerException) : base(message, innerException) { }
+    }
+
+    private const string FpcalcExecutableName = "fpcalc.exe";
    private const string ChomaprintVersion = "1.5.0";
    private const string ChomaprintBaseDownloadUrl = "https://github.com/acoustid/chromaprint/releases/download/v";
    private const int MaxMatches = 10; // Maximum number of matches to return
@@ -26,19 +32,21 @@ public class ProcessingUtils
       var fpcalcPath = EnsureFpcalcExists();
       if (string.IsNullOrEmpty(fpcalcPath))
       {
-         AnsiConsole.MarkupLine("[red]Could not locate or download fpcalc. Fingerprinting is not possible.[/]");
-         return new List<FingerprintMatch>();
+         Log.Error("fpcalc could not be located or downloaded. Fingerprinting is not possible.");
+         throw new ProcessingException("fpcalc is not available. Fingerprinting cannot proceed.");
       }
 
       // Get audio fingerprint
+      Log.Information("Getting audio fingerprint for: {Path}", path);
       var fingerprintData = GetAudioFingerprint(fpcalcPath, path);
       if (fingerprintData == null)
       {
-         AnsiConsole.MarkupLine("[red]Failed to get audio fingerprint.[/]");
-         return new List<FingerprintMatch>();
+         Log.Error("Failed to get audio fingerprint for: {Path}", path);
+         throw new ProcessingException($"Failed to get audio fingerprint for: {path}");
       }
 
       // Look up on MusicBrainz
+      Log.Information("Looking up MusicBrainz data for fingerprint of: {Path}", path);
       return LookupRecordings(fingerprintData.Fingerprint, fingerprintData.Duration);
    }
 
@@ -53,7 +61,7 @@ public class ProcessingUtils
 
       if (File.Exists(fpcalcPath)) return fpcalcPath;
 
-      AnsiConsole.MarkupLine("[yellow]fpcalc not found. Attempting to download...[/]");
+       Log.Warning("fpcalc not found at {FpcalcPath}. Attempting to download...", fpcalcPath);
 
       try
       {
@@ -61,19 +69,19 @@ public class ProcessingUtils
          var arch = GetSystemArchitecture();
          var downloadUrl = GetDownloadUrl(arch);
 
-         AnsiConsole.MarkupLine($"[blue]Downloading fpcalc for {arch} from {downloadUrl}[/]");
+          Log.Information("Downloading fpcalc for {Architecture} from {Url}", arch, downloadUrl);
 
          if (DownloadAndExtractFpcalc(downloadUrl, fpcalcPath))
          {
-            AnsiConsole.MarkupLine("[green]Successfully downloaded and extracted fpcalc[/]");
+             Log.Information("Successfully downloaded and extracted fpcalc to {FpcalcPath}", fpcalcPath);
             return fpcalcPath;
          }
-
+          Log.Error("DownloadAndExtractFpcalc returned false. fpcalc not available.");
          return string.Empty;
       }
       catch (Exception ex)
       {
-         AnsiConsole.MarkupLine($"[red]Error downloading fpcalc: {ex.Message}[/]");
+          Log.Error(ex, "Error downloading fpcalc");
          return string.Empty;
       }
    }
@@ -128,7 +136,7 @@ public class ProcessingUtils
 
          if (fpcalcEntry == null)
          {
-            AnsiConsole.MarkupLine("[red]Could not find fpcalc.exe in the downloaded archive[/]");
+            Log.Error("Could not find {FpcalcExecutableName} in the downloaded archive from {DownloadUrl}", FpcalcExecutableName, downloadUrl);
             return false;
          }
 
@@ -138,7 +146,7 @@ public class ProcessingUtils
       }
       catch (Exception ex)
       {
-         AnsiConsole.MarkupLine($"[red]Error during download/extraction: {ex.Message}[/]");
+         Log.Error(ex, "Error during download/extraction of fpcalc from {DownloadUrl}", downloadUrl);
          return false;
       }
       finally
@@ -160,7 +168,7 @@ public class ProcessingUtils
    /// </summary>
    private static FingerprintData? GetAudioFingerprint(string fpcalcPath, string audioFilePath)
    {
-      AnsiConsole.MarkupLine("[blue]Calculating audio fingerprint...[/]");
+      Log.Information("Calculating audio fingerprint for {AudioFilePath} using {FpcalcPath}...", audioFilePath, fpcalcPath);
 
       var proc = new Process
       {
@@ -198,7 +206,8 @@ public class ProcessingUtils
       }
       catch (Exception ex)
       {
-         AnsiConsole.MarkupLine($"[red]Error running fpcalc: {ex.Message}[/]");
+         Log.Error(ex, "Error running fpcalc for {AudioFilePath}", audioFilePath);
+         // Return null, the caller (Fingerprint method) will throw a ProcessingException.
          return null;
       }
    }
@@ -208,54 +217,63 @@ public class ProcessingUtils
    /// </summary>
    private static List<FingerprintMatch> LookupRecordings(string fingerprint, int duration)
    {
-      AnsiConsole.MarkupLine("[blue]Looking up on MusicBrainz...[/]");
+      Log.Information("Looking up fingerprint on AcoustID/MusicBrainz (Duration: {Duration}s)...", duration);
       var service = new LookupService();
       var matches = new List<FingerprintMatch>();
 
       LookupResponse? results = null;
       try
       {
+         // .Result here makes it synchronous, which is fine for this console app context
+         // but would be async/await in a true GUI app.
          results = service.GetAsync(fingerprint, duration, new[] { "recordingids" }).Result;
 
-         // Retry once if the first attempt fails
+         // Retry once if the first attempt fails (e.g. service unavailable temporarily)
          if (results == null)
          {
-            AnsiConsole.MarkupLine("[yellow]First lookup attempt failed. Retrying...[/]");
+            Log.Warning("AcoustID lookup returned null on first attempt. Retrying in 200ms...");
             Thread.Sleep(200);
             results = service.GetAsync(fingerprint, duration, new[] { "recordingids" }).Result;
 
             if (results == null)
             {
-               AnsiConsole.MarkupLine("[red]Lookup failed after retry.[/]");
-               return matches;
+               Log.Error("AcoustID lookup returned null after retry. Cannot proceed with this fingerprint.");
+               throw new ProcessingException("AcoustID lookup failed after retry (service returned null).");
             }
          }
       }
       catch (Exception ex)
       {
-         AnsiConsole.MarkupLine($"[red]Error during AcoustID lookup: {ex.Message}[/]");
-         return matches;
+         Log.Error(ex, "Exception during AcoustID lookup for fingerprint");
+         throw new ProcessingException($"Error during AcoustID lookup: {ex.Message}", ex);
       }
 
-      // Check for API errors
+      // Check for API errors in the response object itself
       if (!string.IsNullOrEmpty(results.ErrorMessage))
       {
-         AnsiConsole.MarkupLine($"[red]AcoustId API error: {results.ErrorMessage}[/]");
-         return matches;
+         Log.Error("AcoustID API error: {ErrorMessage}", results.ErrorMessage);
+         throw new ProcessingException($"AcoustID API error: {results.ErrorMessage}");
+      }
+
+      if (results.Results == null || !results.Results.Any())
+      {
+        Log.Information("No results found in AcoustID response for fingerprint.");
+        return matches; // No results, not an error
       }
 
       // Get top matching recordings, ordered by score
       var topMatches = results.Results
-         .Where(x => x.Recordings.Count > 0)
+         .Where(x => x.Recordings != null && x.Recordings.Count > 0)
          .OrderByDescending(x => x.Score)
          .Take(MaxMatches)
          .ToList();
 
       if (topMatches.Count == 0)
       {
-         AnsiConsole.MarkupLine("[yellow]No matching recordings found.[/]");
+         Log.Information("No matching recordings found after filtering AcoustID results.");
          return matches;
       }
+      Log.Information("Found {Count} potential AcoustID matches. Fetching MusicBrainz details...", topMatches.Count);
 
       // Track whether we've found a high confidence match
       bool foundHighConfidenceMatch = false;
@@ -263,16 +281,19 @@ public class ProcessingUtils
       // Look up details for each match
       foreach (var match in topMatches)
       {
-         // If we already have a high confidence match (>90%), stop processing
+         // If we already have a high confidence match (>90%), stop processing further potential matches
          if (foundHighConfidenceMatch && match.Score < 0.9)
          {
+            Log.Information("Skipping lower confidence match (Score: {Score}) as a high confidence one was already found.", match.Score);
             break;
          }
 
-         foreach (var recording in match.Recordings.Take(MaxMatches - matches.Count))
+         if (match.Recordings == null) continue;
+
+         foreach (var recording in match.Recordings.Take(MaxMatches - matches.Count)) // Ensure we don't exceed MaxMatches overall
          {
-            AnsiConsole.MarkupLine($"[blue]Looking up details for match with ID: {recording.Id}[/]");
-            var details = GetRecordingDetails(recording.Id);
+            Log.Information("Looking up MusicBrainz details for AcoustID match (Score: {Score}), MBID: {RecordingId}", match.Score, recording.Id);
+            var details = GetRecordingDetails(recording.Id); // This method handles its own logging for errors
             if (details != null)
             {
                matches.Add(new FingerprintMatch
@@ -284,22 +305,23 @@ public class ProcessingUtils
                // If this is a high confidence match, mark it
                if (match.Score >= 0.9)
                {
+                  Log.Information("High confidence match (Score: {Score}) found for MBID: {RecordingId}", match.Score, recording.Id);
                   foundHighConfidenceMatch = true;
                }
             }
 
-            // Pause briefly to avoid hitting rate limits
-            Thread.Sleep(100);
+            // Pause briefly to avoid hitting rate limits for MusicBrainz
+            Thread.Sleep(1000); // Increased from 100ms, MusicBrainz is stricter.
          }
 
-         // If we have a high confidence match, we can return early
+         // If we have a high confidence match, we can break from the outer loop too
          if (foundHighConfidenceMatch)
          {
-            AnsiConsole.MarkupLine("[green]Found high confidence match, stopping further lookups.[/]");
+            Log.Information("High confidence match found, stopping further lookups for this fingerprint batch.");
             break;
          }
       }
-
+      Log.Information("Finished processing {Count} matches from MusicBrainz.", matches.Count);
       return matches;
    }
 
@@ -308,20 +330,29 @@ public class ProcessingUtils
    /// </summary>
    private static IRecording? GetRecordingDetails(string recordingId)
    {
-      var query = new Query("MyriadTagger", Version.Parse("1.0"));
+      var query = new Query("MyriadTagger", Version.Parse("1.0")); // App name and version for User-Agent
 
       try
       {
+         // Ensure recordingId is a valid GUID
+         if (!Guid.TryParse(recordingId, out Guid parsedGuid))
+         {
+            Log.Warning("Invalid GUID format for recordingId: {RecordingId}", recordingId);
+            return null;
+         }
+
+         Log.Debug("Looking up MusicBrainz recording for MBID: {ParsedGuid}", parsedGuid);
          var includeParams = Include.Aliases | Include.Artists | Include.Genres |
                              Include.Isrcs | Include.Releases | Include.Media |
                              Include.Tags | Include.Ratings;
 
-         return query.LookupRecording(new Guid(recordingId), includeParams);
+         return query.LookupRecording(parsedGuid, includeParams);
       }
       catch (Exception ex)
       {
-         AnsiConsole.MarkupLine($"[red]Error looking up recording details: {ex.Message}[/]");
-         return null;
+         // Specific logging for MusicBrainz lookup failure
+         Log.Error(ex, "Error looking up MusicBrainz recording details for ID: {RecordingId}", recordingId);
+         return null; // Return null, don't throw, allow processing of other matches
       }
    }
 

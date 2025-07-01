@@ -1,170 +1,182 @@
 using Newtonsoft.Json;
-using Spectre.Console;
+using Serilog; // Using Serilog
+using Terminal.Gui; // Using Terminal.Gui
 using System;
 using System.IO;
+using System.Text; // For StringBuilder
 using System.Text.RegularExpressions;
+
 
 namespace MyriadMusicTagger
 {
     public static class SettingsManager
     {
-        private const string SettingsFileName = "settings.json";
+        private const string SettingsFileName = "settings.json"; // Changed from appsettings.json to settings.json to match original
         private static readonly Regex UrlPattern = new(@"^https?:\/\/.+", RegexOptions.Compiled);
 
         public static AppSettings LoadSettings()
         {
-            try
+            AppSettings? settings = null;
+            bool settingsInvalidOrMissing = false;
+
+            if (File.Exists(SettingsFileName))
             {
-                if (File.Exists(SettingsFileName))
+                try
                 {
                     var json = File.ReadAllText(SettingsFileName);
-                    var settings = JsonConvert.DeserializeObject<AppSettings>(json);
+                    settings = JsonConvert.DeserializeObject<AppSettings>(json);
                     
-                    if (settings != null && ValidateSettings(settings))
+                    if (settings == null || !ValidateSettings(settings))
                     {
-                        return settings;
+                        Log.Warning("Settings file {FileName} loaded but contains invalid or missing settings.", SettingsFileName);
+                        settingsInvalidOrMissing = true;
+                        settings ??= new AppSettings(); // Ensure settings object exists if null after deserialization
                     }
-                    
-                    if (settings != null)
+                    else
                     {
-                        AnsiConsole.MarkupLine("[yellow]Some settings appear to be invalid or missing. Let's review them.[/]");
-                        return UpdateSettings(settings);
+                        Log.Information("Settings loaded successfully from {FileName}.", SettingsFileName);
                     }
                 }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "Error loading settings from {FileName}. Default settings will be used and reviewed.", SettingsFileName);
+                    settingsInvalidOrMissing = true;
+                    settings = new AppSettings();
+                }
             }
-            catch (Exception ex)
+            else
             {
-                AnsiConsole.MarkupLine($"[red]Error loading settings: {ex.Message}[/]");
+                Log.Information("Settings file {FileName} not found. Default settings will be used and reviewed.", SettingsFileName);
+                settingsInvalidOrMissing = true;
+                settings = new AppSettings();
             }
             
-            return CreateNewSettings();
+            if (settingsInvalidOrMissing)
+            {
+                MessageBox.InfoQuery("Settings Review", "Application settings need to be reviewed or configured.", "Ok");
+                settings = ShowSettingsDialog(settings); // ShowSettingsDialog will handle saving if user confirms
+            }
+            return settings;
         }
 
         private static bool ValidateSettings(AppSettings settings)
         {
+            // Validate all required fields
             return !string.IsNullOrWhiteSpace(settings.AcoustIDClientKey) &&
-                   !string.IsNullOrWhiteSpace(settings.PlayoutWriteKey) &&
-                   !string.IsNullOrWhiteSpace(settings.PlayoutReadKey) &&
-                   settings.DelayBetweenRequests >= 0 &&
-                   UrlPattern.IsMatch(settings.PlayoutApiUrl);
+                   !string.IsNullOrWhiteSpace(settings.PlayoutReadKey) && // WriteKey is optional, ReadKey is not
+                   settings.DelayBetweenRequests >= 0.2 && // MusicBrainz asks for at least 1 req/sec, so 1000ms. Let's be safe with 200ms as a bare minimum.
+                   !string.IsNullOrWhiteSpace(settings.PlayoutApiUrl) && UrlPattern.IsMatch(settings.PlayoutApiUrl);
         }
 
-        private static AppSettings CreateNewSettings()
+        private static AppSettings ShowSettingsDialog(AppSettings currentSettings)
         {
-            var rule = new Rule("[yellow]Settings Configuration[/]");
-            rule.Style = Style.Parse("yellow");
-            rule.Title = "Settings Configuration";
-            AnsiConsole.Write(rule);
-            AnsiConsole.WriteLine();
+            var dialog = new Dialog("Application Settings", 70, 18); // Width, Height
+             // Deep copy for cancel functionality
+            var originalSettingsJson = JsonConvert.SerializeObject(currentSettings);
+
+            var acoustIdKeyLabel = new Label("AcoustID Client Key:") { X = 1, Y = 1 };
+            var acoustIdKeyField = new TextField(currentSettings.AcoustIDClientKey) { X = Pos.Right(acoustIdKeyLabel) + 12, Y = 1, Width = Dim.Fill(5) };
+
+            var playoutWriteKeyLabel = new Label("Playout Write Key (optional):") { X = 1, Y = Pos.Bottom(acoustIdKeyLabel) };
+            var playoutWriteKeyField = new TextField(currentSettings.PlayoutWriteKey) { X = Pos.Left(acoustIdKeyField), Y = Pos.Top(playoutWriteKeyLabel), Width = Dim.Fill(5) };
             
-            var settings = new AppSettings();
-            UpdateSettings(settings);
-            return settings;
+            var playoutReadKeyLabel = new Label("Playout Read Key:") { X = 1, Y = Pos.Bottom(playoutWriteKeyLabel) };
+            var playoutReadKeyField = new TextField(currentSettings.PlayoutReadKey) { X = Pos.Left(acoustIdKeyField), Y = Pos.Top(playoutReadKeyLabel), Width = Dim.Fill(5) };
+
+            var delayLabel = new Label("Delay MusicBrainz (s):") { X = 1, Y = Pos.Bottom(playoutReadKeyLabel) };
+            var delayField = new TextField(currentSettings.DelayBetweenRequests.ToString("0.0##")) { X = Pos.Left(acoustIdKeyField), Y = Pos.Top(delayLabel), Width = Dim.Fill(5) };
+
+            var apiUrlLabel = new Label("Playout API URL:") { X = 1, Y = Pos.Bottom(delayLabel) };
+            var apiUrlField = new TextField(currentSettings.PlayoutApiUrl) { X = Pos.Left(acoustIdKeyField), Y = Pos.Top(apiUrlLabel), Width = Dim.Fill(5) };
+
+            var errorLabel = new Label("") { X = 1, Y = Pos.Bottom(apiUrlLabel) + 1, Width = Dim.Fill(2), Height = 3, TextColor = Application.Driver.MakeAttribute(Color.Red, Color.Black), Multiline = true };
+
+            dialog.Add(acoustIdKeyLabel, acoustIdKeyField,
+                       playoutWriteKeyLabel, playoutWriteKeyField,
+                       playoutReadKeyLabel, playoutReadKeyField,
+                       delayLabel, delayField,
+                       apiUrlLabel, apiUrlField,
+                       errorLabel);
+
+            bool settingsSaved = false;
+            var saveButton = new Button("Save") { X = Pos.Center() - 8, Y = Pos.Bottom(dialog) - 3, IsDefault = true};
+            saveButton.Clicked += () => {
+                var tempSettings = new AppSettings
+                {
+                    AcoustIDClientKey = acoustIdKeyField.Text.ToString(),
+                    PlayoutWriteKey = playoutWriteKeyField.Text.ToString(), // Optional, can be empty
+                    PlayoutReadKey = playoutReadKeyField.Text.ToString(),
+                    PlayoutApiUrl = apiUrlField.Text.ToString(),
+                };
+
+                var validationErrors = new StringBuilder();
+                if (string.IsNullOrWhiteSpace(tempSettings.AcoustIDClientKey)) validationErrors.AppendLine("- AcoustID Client Key is required.");
+                if (string.IsNullOrWhiteSpace(tempSettings.PlayoutReadKey)) validationErrors.AppendLine("- Playout Read Key is required.");
+
+                if (!double.TryParse(delayField.Text.ToString(), out double delayVal) || delayVal < 0.2)
+                {
+                    validationErrors.AppendLine("- Delay must be a number >= 0.2 seconds.");
+                }
+                else
+                {
+                    tempSettings.DelayBetweenRequests = delayVal;
+                }
+
+                if (string.IsNullOrWhiteSpace(tempSettings.PlayoutApiUrl) || !UrlPattern.IsMatch(tempSettings.PlayoutApiUrl))
+                {
+                    validationErrors.AppendLine("- Playout API URL is required and must be a valid HTTP/HTTPS URL.");
+                }
+
+                if (validationErrors.Length > 0)
+                {
+                    errorLabel.Text = validationErrors.ToString();
+                    return;
+                }
+
+                // Update the reference to currentSettings that was passed in.
+                currentSettings.AcoustIDClientKey = tempSettings.AcoustIDClientKey;
+                currentSettings.PlayoutWriteKey = tempSettings.PlayoutWriteKey;
+                currentSettings.PlayoutReadKey = tempSettings.PlayoutReadKey;
+                currentSettings.DelayBetweenRequests = tempSettings.DelayBetweenRequests;
+                currentSettings.PlayoutApiUrl = tempSettings.PlayoutApiUrl;
+
+                SaveSettingsToFile(currentSettings);
+                settingsSaved = true;
+                Application.RequestStop(dialog);
+                MessageBox.InfoQuery("Settings Saved", "Settings have been saved successfully.", "Ok");
+            };
+
+            var cancelButton = new Button("Cancel") { X = Pos.Right(saveButton) + 1, Y = saveButton.Y };
+            cancelButton.Clicked += () => {
+                Application.RequestStop(dialog);
+            };
+
+            dialog.AddButton(saveButton);
+            dialog.AddButton(cancelButton);
+
+            acoustIdKeyField.SetFocus();
+            Application.Run(dialog);
+
+            // If cancelled, revert to original settings before dialog
+            return settingsSaved ? currentSettings : JsonConvert.DeserializeObject<AppSettings>(originalSettingsJson);
         }
 
-        private static AppSettings UpdateSettings(AppSettings settings)
+        // Renamed to SaveSettingsToFile to make its purpose clear (private persistence)
+        private static void SaveSettingsToFile(AppSettings settings)
         {
-            var settingsTable = new Table()
-                .Border(TableBorder.Rounded)
-                .BorderColor(Color.Blue)
-                .AddColumn(new TableColumn("Setting").LeftAligned())
-                .AddColumn(new TableColumn("Current Value").LeftAligned());
-
-            // Helper function to display current value
-            string GetDisplayValue(string value) => string.IsNullOrEmpty(value) ? "[grey]<not set>[/]" : value;
-
-            settingsTable.AddRow("AcoustID Client Key", GetDisplayValue(settings.AcoustIDClientKey));
-            settingsTable.AddRow("Playout Write Key", GetDisplayValue(settings.PlayoutWriteKey));
-            settingsTable.AddRow("Playout Read Key", GetDisplayValue(settings.PlayoutReadKey));
-            settingsTable.AddRow("Delay Between Requests", settings.DelayBetweenRequests.ToString());
-            settingsTable.AddRow("Playout API URL", GetDisplayValue(settings.PlayoutApiUrl));
-
-            AnsiConsole.Write(settingsTable);
-            AnsiConsole.WriteLine();
-
-            if (!string.IsNullOrWhiteSpace(settings.AcoustIDClientKey))
-            {
-                if (!AnsiConsole.Confirm("Would you like to update any settings?"))
-                {
-                    return settings;
-                }
-            }
-
-            settings.AcoustIDClientKey = AnsiConsole.Prompt(
-                new TextPrompt<string>("[yellow]AcoustID Client Key:[/]")
-                    .PromptStyle("green")
-                    .DefaultValue(settings.AcoustIDClientKey)
-                    .Validate(key =>
-                    {
-                        return !string.IsNullOrWhiteSpace(key) 
-                            ? ValidationResult.Success() 
-                            : ValidationResult.Error("Client key cannot be empty");
-                    }));
-
-            settings.PlayoutWriteKey = AnsiConsole.Prompt(
-                new TextPrompt<string>("[yellow]Playout Write Key:[/]")
-                    .PromptStyle("green")
-                    .DefaultValue(settings.PlayoutWriteKey)
-                    .Validate(key =>
-                    {
-                        return !string.IsNullOrWhiteSpace(key) 
-                            ? ValidationResult.Success() 
-                            : ValidationResult.Error("Write key cannot be empty");
-                    }));
-
-            settings.PlayoutReadKey = AnsiConsole.Prompt(
-                new TextPrompt<string>("[yellow]Playout Read Key:[/]")
-                    .PromptStyle("green")
-                    .DefaultValue(settings.PlayoutReadKey)
-                    .Validate(key =>
-                    {
-                        return !string.IsNullOrWhiteSpace(key) 
-                            ? ValidationResult.Success() 
-                            : ValidationResult.Error("Read key cannot be empty");
-                    }));
-
-            settings.DelayBetweenRequests = AnsiConsole.Prompt(
-                new TextPrompt<double>("[yellow]Delay Between Requests (seconds):[/]")
-                    .PromptStyle("green")
-                    .DefaultValue(settings.DelayBetweenRequests)
-                    .Validate(delay =>
-                    {
-                        return delay >= 0 
-                            ? ValidationResult.Success() 
-                            : ValidationResult.Error("Delay must be non-negative");
-                    }));
-
-            settings.PlayoutApiUrl = AnsiConsole.Prompt(
-                new TextPrompt<string>("[yellow]Playout API URL:[/]")
-                    .PromptStyle("green")
-                    .DefaultValue(settings.PlayoutApiUrl ?? "http://localhost:9180/BrMyriadPlayout/v6")
-                    .Validate(url =>
-                    {
-                        if (string.IsNullOrWhiteSpace(url))
-                            return ValidationResult.Error("URL cannot be empty");
-                        if (!UrlPattern.IsMatch(url))
-                            return ValidationResult.Error("Invalid URL format");
-                        return ValidationResult.Success();
-                    }));
-
             try
             {
-                SaveSettings(settings);
-                AnsiConsole.MarkupLine("[green]Settings saved successfully![/]");
+                var json = JsonConvert.SerializeObject(settings, Formatting.Indented);
+                File.WriteAllText(SettingsFileName, json);
+                Log.Information("Settings saved successfully to {FileName}", SettingsFileName);
             }
             catch (Exception ex)
             {
-                AnsiConsole.MarkupLine($"[red]Error saving settings: {ex.Message}[/]");
-                AnsiConsole.MarkupLine("[yellow]You can continue with the current settings, but they won't be saved for next time.[/]");
+                Log.Error(ex, "Error saving settings to {FileName}", SettingsFileName);
+                // This error should ideally be shown to the user if ShowSettingsDialog was the caller.
+                // ShowSettingsDialog handles this with a MessageBox.
+                throw; // Re-throw to allow caller (ShowSettingsDialog) to handle UI feedback
             }
-
-            return settings;
-        }
-
-        private static void SaveSettings(AppSettings settings)
-        {
-            var json = JsonConvert.SerializeObject(settings, Formatting.Indented);
-            File.WriteAllText(SettingsFileName, json);
         }
     }
 }
