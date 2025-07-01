@@ -113,10 +113,10 @@ namespace MyriadMusicTagger
             saveButton.Clicked += () => {
                 var tempSettings = new AppSettings
                 {
-                    AcoustIDClientKey = acoustIdKeyField.Text.ToString(),
-                    PlayoutWriteKey = playoutWriteKeyField.Text.ToString(), // Optional, can be empty
-                    PlayoutReadKey = playoutReadKeyField.Text.ToString(),
-                    PlayoutApiUrl = apiUrlField.Text.ToString(),
+                    AcoustIDClientKey = acoustIdKeyField.Text?.ToString() ?? string.Empty,
+                    PlayoutWriteKey = playoutWriteKeyField.Text?.ToString() ?? string.Empty, // Optional, can be empty
+                    PlayoutReadKey = playoutReadKeyField.Text?.ToString() ?? string.Empty,
+                    PlayoutApiUrl = apiUrlField.Text?.ToString() ?? string.Empty,
                 };
 
                 var validationErrors = new StringBuilder();

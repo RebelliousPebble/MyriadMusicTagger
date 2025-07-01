@@ -360,7 +360,15 @@ public class Program
         var startField = new TextField("") { X = Pos.Right(startLabel) + 1, Y = 1, Width = 10 };
         var endLabel = new Label("End Item Number:") { X = 1, Y = Pos.Bottom(startLabel) + 1 };
         var endField = new TextField("") { X = Pos.Right(endLabel) + 1, Y = Pos.Top(endLabel), Width = 10 };
-        var errorLabel = new Label("") { X = 1, Y = Pos.Bottom(endLabel) + 1, Width = Dim.Fill() -2, TextColor = Application.Driver.MakeAttribute(Color.Red, Color.Black) };
+        var errorLabel = new Label("") { X = 1, Y = Pos.Bottom(endLabel) + 1, Width = Dim.Fill() -2 /* Removed TextColor, will use ColorScheme */ };
+        var errorColorScheme = new ColorScheme
+        {
+            Normal = Application.Driver.MakeAttribute(Color.Red, dialog.ColorScheme?.Normal.Background ?? Color.Black),
+            Focus = Application.Driver.MakeAttribute(Color.Red, dialog.ColorScheme?.Focus.Background ?? Color.Black),
+            HotNormal = Application.Driver.MakeAttribute(Color.Red, dialog.ColorScheme?.HotNormal.Background ?? Color.Black),
+            HotFocus = Application.Driver.MakeAttribute(Color.Red, dialog.ColorScheme?.HotFocus.Background ?? Color.Black)
+        };
+        errorLabel.ColorScheme = errorColorScheme;
         dialog.Add(startLabel, startField, endLabel, endField, errorLabel);
 
         bool inputValid = false; int startItem = 0, endItem = 0;
