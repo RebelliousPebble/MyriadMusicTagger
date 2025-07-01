@@ -65,7 +65,7 @@ public class Program
         {
             new MenuBarItem("_File", new MenuItem[]
             {
-                new MenuItem("_Settings", "", () => SettingsManager.LoadSettings(forceReview: true)), // Added Settings option
+                new MenuItem("_Settings", "", () => SettingsManager.ReviewSettingsGui()),
                 new MenuItem("_Exit", "", () => Application.RequestStop(), null, null, Key.Q | Key.CtrlMask)
             }),
             new MenuBarItem("_Process", new MenuItem[]
@@ -121,28 +121,28 @@ public class Program
         var loadingDialog = new Dialog("Processing...", 50, 7) { Title = $"Item {itemNumber}"};
         var statusLabel = new Label($"Fetching details for item {itemNumber}...") { X = 1, Y = 1, Width = Dim.Fill(2) };
         loadingDialog.Add(statusLabel);
-        Application.Begin(loadingDialog);
+        var loadingToken = Application.Begin(loadingDialog);
 
         var request = CreateReadItemRequest(itemNumber, settings.PlayoutReadKey);
         RestResponse response;
         try { response = client.Get(request); } // Synchronous
-        catch (Exception ex) { Application.End(loadingDialog); MessageBox.ErrorQuery("API Connection Error", $"Failed to connect to Myriad API: {ex.Message}", "Ok"); Log.Error(ex, "Myriad API connection error on Get for item {ItemNumber}",itemNumber); return;}
+        catch (Exception ex) { Application.End(loadingToken); MessageBox.ErrorQuery("API Connection Error", $"Failed to connect to Myriad API: {ex.Message}", "Ok"); Log.Error(ex, "Myriad API connection error on Get for item {ItemNumber}",itemNumber); return;}
 
-        var readItemResponse = ProcessApiResponse(response, "Failed to parse API response for ReadItem"); // ProcessApiResponse uses DisplayError which is now GUI
-        if (readItemResponse == null) { Application.End(loadingDialog); return; } // Error already shown by ProcessApiResponse
+        var readItemResponse = ProcessApiResponse(response, "Failed to parse API response for ReadItem");
+        if (readItemResponse == null) { Application.End(loadingToken); return; }
 
-        Application.End(loadingDialog); // Close initial loading
+        Application.End(loadingToken);
         DisplayItemDetailsGui(readItemResponse);
 
         var processingDialog = new Dialog("Processing...", 50, 7) { Title = $"Item {itemNumber}"};
         var fingerprintStatusLabel = new Label($"Fingerprinting item {itemNumber}...") { X = 1, Y = 1, Width = Dim.Fill(2) };
         processingDialog.Add(fingerprintStatusLabel);
-        Application.Begin(processingDialog);
+        var processingToken = Application.Begin(processingDialog);
 
         var pathToFile = readItemResponse.MediaLocation;
         if (string.IsNullOrEmpty(pathToFile) || !File.Exists(pathToFile))
         {
-            Application.End(processingDialog);
+            Application.End(processingToken);
             MessageBox.ErrorQuery("File Error", $"Media file not found or path is invalid:\n{pathToFile}", "Ok");
             return;
         }
@@ -154,13 +154,13 @@ public class Program
         }
         catch (ProcessingUtils.ProcessingException pex)
         {
-            Application.End(processingDialog);
+            Application.End(processingToken);
             MessageBox.ErrorQuery("Fingerprint Error", pex.Message, "Ok");
             return;
         }
         catch (Exception ex)
         {
-            Application.End(processingDialog);
+            Application.End(processingToken);
             MessageBox.ErrorQuery("Fingerprint Error", $"An unexpected error occurred during fingerprinting: {ex.Message}", "Ok");
             Log.Error(ex, "Unexpected error in Fingerprint call for {PathToFile}", pathToFile);
             return;
@@ -168,8 +168,8 @@ public class Program
 
         if (matches.Count == 0)
         {
-            Application.End(processingDialog);
-            MessageBox.InfoQuery("No Matches", "No audio fingerprint matches found.", "Ok");
+            Application.End(processingToken);
+            MessageBox.Query("No Matches", "No audio fingerprint matches found.", "Ok");
             return;
         }
 
@@ -194,7 +194,7 @@ public class Program
             System.Threading.Thread.Sleep(500);
         }
 
-        Application.End(processingDialog);
+        Application.End(processingToken);
 
         MetaBrainz.MusicBrainz.Interfaces.Entities.IRecording? matchResult = null;
         if (_lastFingerprints.Count == 1 && _lastFingerprints[0].RecordingInfo != null)
@@ -208,7 +208,7 @@ public class Program
         }
         else
         {
-             MessageBox.InfoQuery("No Matches", "No valid fingerprint matches to select from after scoring.", "Ok");
+             MessageBox.Query("No Matches", "No valid fingerprint matches to select from after scoring.", "Ok");
              return;
         }
         
@@ -220,12 +220,12 @@ public class Program
             }
             else
             {
-                MessageBox.InfoQuery("Save Cancelled", "Changes were not saved.", "Ok");
+                MessageBox.Query("Save Cancelled", "Changes were not saved.", "Ok");
             }
         }
         else
         {
-             MessageBox.InfoQuery("No Match Selected", "No match was selected or confirmed. No changes made.", "Ok");
+             MessageBox.Query("No Match Selected", "No match was selected or confirmed. No changes made.", "Ok");
         }
         AddToRecentItems(itemNumber);
     }
@@ -282,7 +282,10 @@ public class Program
             if (listView.SelectedItem >= 0 && listView.SelectedItem < matchItems.Count)
             {
                 selectedRecording = matchMap[matchItems[listView.SelectedItem]];
-                DisplayNewMetadataGui(selectedRecording);
+                if (selectedRecording != null) // Add null check here
+                {
+                    DisplayNewMetadataGui(selectedRecording);
+                }
             }
             Application.RequestStop(dialog);
         };
@@ -323,16 +326,16 @@ public class Program
     {
         var savingDialog = new Dialog("Saving...", 40, 7) {Title = $"Item {itemNumber}"};
         savingDialog.Add(new Label($"Saving changes for item {itemNumber}...") { X = 1, Y = 1 });
-        Application.Begin(savingDialog);
+        var savingToken = Application.Begin(savingDialog);
 
         var titleUpdate = new MyriadTitleSchema { ItemTitle = recordingInfo.Title ?? string.Empty, Artists = recordingInfo.ArtistCredit?.Select(x => x.Name ?? string.Empty).ToList() ?? new List<string>() };
         var request = CreateUpdateItemRequest(itemNumber, settings.PlayoutWriteKey, titleUpdate);
         RestResponse result;
         try { result = client.Execute(request, Method.Post); } // Synchronous
-        catch(Exception ex) { Application.End(savingDialog); MessageBox.ErrorQuery("API Connection Error", $"Failed to save to Myriad API: {ex.Message}", "Ok"); Log.Error(ex, "Myriad API connection error on Post for item {ItemNumber}", itemNumber); return;}
+        catch(Exception ex) { Application.End(savingToken); MessageBox.ErrorQuery("API Connection Error", $"Failed to save to Myriad API: {ex.Message}", "Ok"); Log.Error(ex, "Myriad API connection error on Post for item {ItemNumber}", itemNumber); return;}
 
-        Application.End(savingDialog);
-        if (result.IsSuccessful) { MessageBox.InfoQuery("Success", "Metadata successfully updated in Myriad system!", "Ok");}
+        Application.End(savingToken);
+        if (result.IsSuccessful) { MessageBox.Query("Success", "Metadata successfully updated in Myriad system!", "Ok");}
         else { HandleApiErrorGui(result, "update metadata in Myriad system"); }
     }
     
@@ -382,7 +385,7 @@ public class Program
         var progressLabel = new Label($"Processing items {startItem} to {endItem}...") { X = 1, Y = 1, Width = Dim.Fill()-2 };
         var currentItemLabel = new Label("") { X = 1, Y = 2, Width = Dim.Fill()-2 };
         progressDialog.Add(progressLabel, currentItemLabel);
-        Application.Begin(progressDialog);
+        var batchProgressToken = Application.Begin(progressDialog);
 
         for (int itemNumber = startItem; itemNumber <= endItem; itemNumber++)
         {
@@ -418,7 +421,7 @@ public class Program
                 _batchProcessItems.Add(new BatchProcessItem { ItemNumber = itemNumber, Error = $"Failed to process: {ex.Message}", IsSelected = false });
             }
         }
-        Application.End(progressDialog);
+        Application.End(batchProgressToken);
         ShowBatchResultsGui();
         ShowBatchEditTableGui(client, settings);
     }
@@ -462,7 +465,7 @@ public class Program
 
     private static void ShowBatchEditTableGui(RestClient client, AppSettings settings)
     {
-        if (_batchProcessItems.Count == 0) { MessageBox.InfoQuery("Batch Edit", "No items were processed in the batch.", "Ok"); return; }
+        if (_batchProcessItems.Count == 0) { MessageBox.Query("Batch Edit", "No items were processed in the batch.", "Ok"); return; }
         var editDialog = new Dialog("Batch Edit Table", 120, 30);
         var tableView = new TableView() { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill() - 3, FullRowSelect = true, };
         var table = new System.Data.DataTable(); // This is the DataTable instance
@@ -539,7 +542,7 @@ public class Program
                     item.RecordingInfo = recordingInfo;
                     item.ConfidenceScore = _lastFingerprints.FirstOrDefault(f => f.RecordingInfo == recordingInfo)?.Score ?? item.ConfidenceScore;
                     newTitleField.Text = item.NewTitle; newArtistField.Text = item.NewArtist; item.Error = null;
-                    MessageBox.InfoQuery("Match Selected", "Metadata populated from selection.", "Ok");
+                    MessageBox.Query("Match Selected", "Metadata populated from selection.", "Ok");
                 }
             };
             editDialog.Add(selectMatchButton);
@@ -547,7 +550,8 @@ public class Program
 
         var okButton = new Button("Ok") { X = Pos.Center() - 8, Y = Pos.Bottom(editDialog) - 3, IsDefault = true };
         okButton.Clicked += () => {
-            item.NewTitle = newTitleField.Text.ToString(); item.NewArtist = newArtistField.Text.ToString();
+            item.NewTitle = newTitleField.Text?.ToString() ?? string.Empty;
+            item.NewArtist = newArtistField.Text?.ToString() ?? string.Empty;
             if (!string.IsNullOrWhiteSpace(item.NewTitle) && !string.IsNullOrWhiteSpace(item.NewArtist)) { item.IsSelected = true; item.Error = null; }
             else { item.IsSelected = false; MessageBox.ErrorQuery("Missing Info", "Title and Artist cannot be empty if item is to be saved.", "Ok");}
             Application.RequestStop(editDialog);
@@ -568,13 +572,14 @@ public class Program
     private static void SaveBatchChangesGui(RestClient client, AppSettings settings)
     {
         var selectedItems = _batchProcessItems.Where(i => i.IsSelected && string.IsNullOrEmpty(i.Error)).ToList();
-        if (!selectedItems.Any()) { MessageBox.InfoQuery("Save Changes", "No items are currently selected for saving or all selected items have errors.", "Ok"); return; }
+        if (!selectedItems.Any()) { MessageBox.Query("Save Changes", "No items are currently selected for saving or all selected items have errors.", "Ok"); return; }
         if (MessageBox.Query("Confirm Save", $"Are you sure you want to save changes for {selectedItems.Count} item(s)?", "Yes", "No") == 1) return;
 
         var progressDialog = new Dialog("Saving Changes...", 50, 7);
         var progressLabel = new Label($"Saving {selectedItems.Count} items...") { X = 1, Y = 1, Width = Dim.Fill() -2 };
         var currentItemLabel = new Label("") { X = 1, Y = 2, Width = Dim.Fill() -2 };
-        progressDialog.Add(progressLabel, currentItemLabel); Application.Begin(progressDialog);
+        progressDialog.Add(progressLabel, currentItemLabel);
+        var saveProgressToken = Application.Begin(progressDialog);
         int successCount = 0, errorCount = 0;
 
         for (int i = 0; i < selectedItems.Count; i++)
@@ -584,9 +589,19 @@ public class Program
             try
             {
                 MyriadTitleSchema titleUpdate;
-                if (item.RecordingInfo != null && item.RecordingInfo.Title == item.NewTitle && (string.Join(", ", item.RecordingInfo.ArtistCredit?.Select(a => a.Name) ?? Array.Empty<string>()) == item.NewArtist || item.RecordingInfo.ArtistCredit?.FirstOrDefault()?.Name == item.NewArtist) )
-                    { titleUpdate = new MyriadTitleSchema { ItemTitle = item.RecordingInfo.Title ?? string.Empty, Artists = item.RecordingInfo.ArtistCredit?.Select(x => x.Name ?? string.Empty).ToList() ?? new List<string>()}; }
-                else { titleUpdate = new MyriadTitleSchema { ItemTitle = item.NewTitle, Artists = item.NewArtist?.Split(',').Select(a => a.Trim()).Where(a => !string.IsNullOrEmpty(a)).ToList() ?? new List<string>()}; }
+                if (item.RecordingInfo != null && item.RecordingInfo.Title == item.NewTitle && (string.Join(", ", item.RecordingInfo.ArtistCredit?.Select(a => a.Name ?? string.Empty) ?? Array.Empty<string>()) == item.NewArtist || item.RecordingInfo.ArtistCredit?.FirstOrDefault()?.Name == item.NewArtist) )
+                {
+                    titleUpdate = new MyriadTitleSchema { ItemTitle = item.RecordingInfo.Title ?? string.Empty, Artists = item.RecordingInfo.ArtistCredit?.Select(x => x.Name ?? string.Empty).ToList() ?? new List<string>()};
+                }
+                else
+                {
+                    List<string> artistsList = new List<string>();
+                    if (item.NewArtist != null)
+                    {
+                        artistsList = item.NewArtist.Split(',').Select(a => a.Trim()).Where(a => !string.IsNullOrEmpty(a)).ToList();
+                    }
+                    titleUpdate = new MyriadTitleSchema { ItemTitle = item.NewTitle, Artists = artistsList };
+                }
                 
                 if (string.IsNullOrWhiteSpace(titleUpdate.ItemTitle) || !titleUpdate.Artists.Any())
                 { item.Error = "Title or Artist is empty, cannot save."; item.IsSelected = false; errorCount++; Log.Warning($"Skipping save for item {item.ItemNumber} due to missing title/artist after final check."); continue; }
@@ -597,16 +612,16 @@ public class Program
                 else { errorCount++; item.Error = $"API Error: {result.ErrorMessage ?? result.Content ?? "Unknown"}"; item.IsSelected = false; Log.Error($"Failed to save item {item.ItemNumber}: {item.Error}", result.ErrorException); }
             } catch (Exception ex) { errorCount++; item.Error = $"Exception: {ex.Message}"; item.IsSelected = false; Log.Error(ex, $"Exception while saving item {item.ItemNumber}"); }
         }
-        Application.End(progressDialog);
+        Application.End(saveProgressToken);
         var summaryMessage = new StringBuilder();
         summaryMessage.AppendLine($"Successfully saved: {successCount} item(s)."); summaryMessage.AppendLine($"Failed to save: {errorCount} item(s).");
         if (errorCount > 0) { summaryMessage.AppendLine("Check the table for error details on failed items."); }
-        MessageBox.InfoQuery("Save Complete", summaryMessage.ToString(), "Ok");
+        MessageBox.Query("Save Complete", summaryMessage.ToString(), "Ok");
     }
 
     private static void ProcessRecentItemsGui(RestClient client, AppSettings settings)
     {
-        if (_recentItems.Count == 0) { MessageBox.InfoQuery("Recent Items", "No recent items found.", "Ok"); return; }
+        if (_recentItems.Count == 0) { MessageBox.Query("Recent Items", "No recent items found.", "Ok"); return; }
         var dialog = new Dialog("Recent Items", 50, 15 + Math.Min(_recentItems.Count, 10));
         var recentItemsList = _recentItems.Select(i => $"Item {i}").ToList();
         var listView = new ListView(recentItemsList) { X = 1, Y = 1, Width = Dim.Fill() - 2, Height = Dim.Fill() - 4, AllowsMarking = false, AllowsMultipleSelection = false };
@@ -616,7 +631,7 @@ public class Program
             if (listView.SelectedItem >= 0 && listView.SelectedItem < recentItemsList.Count)
             { if (int.TryParse(recentItemsList[listView.SelectedItem].Split(' ')[1], out int itemNumber)) { selectedItemNumber = itemNumber; Application.RequestStop(dialog); }
               else { MessageBox.ErrorQuery("Error", "Could not parse selected item number.", "Ok"); }
-            } else { MessageBox.InfoQuery("Selection", "Please select an item to process.", "Ok"); }
+            } else { MessageBox.Query("Selection", "Please select an item to process.", "Ok"); }
         };
         var cancelButton = new Button("Cancel") {X = Pos.Right(processButton) + 1, Y = processButton.Y};
         cancelButton.Clicked += () => { selectedItemNumber = -1; Application.RequestStop(dialog); };

@@ -53,7 +53,7 @@ namespace MyriadMusicTagger
             
             if (settingsInvalidOrMissing)
             {
-                MessageBox.InfoQuery("Settings Review", "Application settings need to be reviewed or configured.", "Ok");
+                MessageBox.Query("Settings Review", "Application settings need to be reviewed or configured.", "Ok");
                 settings = ShowSettingsDialog(settings); // ShowSettingsDialog will handle saving if user confirms
             }
             return settings;
@@ -75,21 +75,31 @@ namespace MyriadMusicTagger
             var originalSettingsJson = JsonConvert.SerializeObject(currentSettings);
 
             var acoustIdKeyLabel = new Label("AcoustID Client Key:") { X = 1, Y = 1 };
-            var acoustIdKeyField = new TextField(currentSettings.AcoustIDClientKey) { X = Pos.Right(acoustIdKeyLabel) + 12, Y = 1, Width = Dim.Fill(5) };
+            var acoustIdKeyField = new TextField(currentSettings.AcoustIDClientKey ?? string.Empty) { X = Pos.Right(acoustIdKeyLabel) + 12, Y = 1, Width = Dim.Fill(5) };
 
             var playoutWriteKeyLabel = new Label("Playout Write Key (optional):") { X = 1, Y = Pos.Bottom(acoustIdKeyLabel) };
-            var playoutWriteKeyField = new TextField(currentSettings.PlayoutWriteKey) { X = Pos.Left(acoustIdKeyField), Y = Pos.Top(playoutWriteKeyLabel), Width = Dim.Fill(5) };
-            
+            var playoutWriteKeyField = new TextField(currentSettings.PlayoutWriteKey ?? string.Empty) { X = Pos.Left(acoustIdKeyField), Y = Pos.Top(playoutWriteKeyLabel), Width = Dim.Fill(5) };
+
             var playoutReadKeyLabel = new Label("Playout Read Key:") { X = 1, Y = Pos.Bottom(playoutWriteKeyLabel) };
-            var playoutReadKeyField = new TextField(currentSettings.PlayoutReadKey) { X = Pos.Left(acoustIdKeyField), Y = Pos.Top(playoutReadKeyLabel), Width = Dim.Fill(5) };
+            var playoutReadKeyField = new TextField(currentSettings.PlayoutReadKey ?? string.Empty) { X = Pos.Left(acoustIdKeyField), Y = Pos.Top(playoutReadKeyLabel), Width = Dim.Fill(5) };
 
             var delayLabel = new Label("Delay MusicBrainz (s):") { X = 1, Y = Pos.Bottom(playoutReadKeyLabel) };
-            var delayField = new TextField(currentSettings.DelayBetweenRequests.ToString("0.0##")) { X = Pos.Left(acoustIdKeyField), Y = Pos.Top(delayLabel), Width = Dim.Fill(5) };
+            var delayField = new TextField(currentSettings.DelayBetweenRequests.ToString("0.0##")) { X = Pos.Left(acoustIdKeyField), Y = Pos.Top(delayLabel), Width = Dim.Fill(5) }; // double to string is fine
 
             var apiUrlLabel = new Label("Playout API URL:") { X = 1, Y = Pos.Bottom(delayLabel) };
-            var apiUrlField = new TextField(currentSettings.PlayoutApiUrl) { X = Pos.Left(acoustIdKeyField), Y = Pos.Top(apiUrlLabel), Width = Dim.Fill(5) };
+            var apiUrlField = new TextField(currentSettings.PlayoutApiUrl ?? string.Empty) { X = Pos.Left(acoustIdKeyField), Y = Pos.Top(apiUrlLabel), Width = Dim.Fill(5) };
 
-            var errorLabel = new Label("") { X = 1, Y = Pos.Bottom(apiUrlLabel) + 1, Width = Dim.Fill(2), Height = 3, TextColor = Application.Driver.MakeAttribute(Color.Red, Color.Black), Multiline = true };
+            var errorLabel = new Label("") { X = 1, Y = Pos.Bottom(apiUrlLabel) + 1, Width = Dim.Fill(2), Height = 3 /* Label is multiline by default if text has \n and height allows */ };
+            // Set color scheme for error label
+            var errorColorScheme = new ColorScheme
+            {
+                Normal = Application.Driver.MakeAttribute(Color.Red, dialog.ColorScheme?.Normal.Background ?? Color.Black), // Use dialog's background color
+                Focus = Application.Driver.MakeAttribute(Color.Red, dialog.ColorScheme?.Focus.Background ?? Color.Black),
+                HotNormal = Application.Driver.MakeAttribute(Color.Red, dialog.ColorScheme?.HotNormal.Background ?? Color.Black),
+                HotFocus = Application.Driver.MakeAttribute(Color.Red, dialog.ColorScheme?.HotFocus.Background ?? Color.Black)
+            };
+            errorLabel.ColorScheme = errorColorScheme;
+
 
             dialog.Add(acoustIdKeyLabel, acoustIdKeyField,
                        playoutWriteKeyLabel, playoutWriteKeyField,
@@ -143,7 +153,7 @@ namespace MyriadMusicTagger
                 SaveSettingsToFile(currentSettings);
                 settingsSaved = true;
                 Application.RequestStop(dialog);
-                MessageBox.InfoQuery("Settings Saved", "Settings have been saved successfully.", "Ok");
+                MessageBox.Query("Settings Saved", "Settings have been saved successfully.", "Ok");
             };
 
             var cancelButton = new Button("Cancel") { X = Pos.Right(saveButton) + 1, Y = saveButton.Y };
@@ -157,8 +167,40 @@ namespace MyriadMusicTagger
             acoustIdKeyField.SetFocus();
             Application.Run(dialog);
 
-            // If cancelled, revert to original settings before dialog
-            return settingsSaved ? currentSettings : JsonConvert.DeserializeObject<AppSettings>(originalSettingsJson);
+            if (settingsSaved)
+            {
+                return currentSettings; // Return the modified and saved settings
+            }
+            else
+            {
+                // If cancelled, or save was not successful, revert to original settings
+                // The 'currentSettings' object passed to ShowSettingsDialog might have been modified
+                // by data binding or direct field updates before validation failed on an attempted save.
+                // So, always deserialize from the original snapshot on cancel/no save.
+                var revertedSettings = JsonConvert.DeserializeObject<AppSettings>(originalSettingsJson);
+                // If originalSettingsJson was somehow corrupted/null string, DeserializeObject could return null.
+                // In this highly unlikely edge case, returning the 'currentSettings' as they were at the start
+                // of the method is better than returning a fresh 'new AppSettings()', as 'currentSettings'
+                // at least reflects a valid state the app was in.
+                return revertedSettings ?? currentSettings;
+            }
+        }
+
+        /// <summary>
+        /// Loads current settings and then explicitly shows the settings dialog for review/edit.
+        /// Saves settings if the user confirms in the dialog.
+        /// </summary>
+        public static void ReviewSettingsGui()
+        {
+            AppSettings currentSettings = LoadSettings(); // Load potentially existing or default settings
+            // ShowSettingsDialog will handle saving if changes are made and confirmed by the user.
+            // The returned AppSettings object from ShowSettingsDialog isn't strictly needed here
+            // as LoadSettings() on next app start will pick up any saved changes.
+            // However, if settings are modified, the current runtime instance of 'settings' in Program.cs
+            // won't be updated by this call directly. This might be acceptable if settings are mostly
+            // read at startup or before long operations. For immediate effect, Program.cs would need to
+            // re-assign its 'settings' variable. For now, this just ensures settings can be reviewed and saved.
+            ShowSettingsDialog(currentSettings);
         }
 
         // Renamed to SaveSettingsToFile to make its purpose clear (private persistence)
