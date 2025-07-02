@@ -203,6 +203,30 @@ namespace MyriadMusicTagger
             ShowSettingsDialog(currentSettings);
         }
 
+        /// <summary>
+        /// Shows the settings dialog and returns the updated settings if they were saved.
+        /// Returns null if the dialog was cancelled.
+        /// </summary>
+        public static AppSettings? ShowSettingsDialogAndReturn(AppSettings currentSettings)
+        {
+            // Deep copy for cancel functionality
+            var originalSettingsJson = JsonConvert.SerializeObject(currentSettings);
+            var settingsBeforeDialog = JsonConvert.DeserializeObject<AppSettings>(originalSettingsJson) ?? currentSettings;
+            
+            var updatedSettings = ShowSettingsDialog(currentSettings);
+            
+            // Compare if settings actually changed by comparing JSON representations
+            var updatedJson = JsonConvert.SerializeObject(updatedSettings);
+            var originalJson = JsonConvert.SerializeObject(settingsBeforeDialog);
+            
+            if (updatedJson != originalJson)
+            {
+                return updatedSettings; // Settings were changed and saved
+            }
+            
+            return null; // No changes made or dialog was cancelled
+        }
+
         // Renamed to SaveSettingsToFile to make its purpose clear (private persistence)
         private static void SaveSettingsToFile(AppSettings settings)
         {

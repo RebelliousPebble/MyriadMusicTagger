@@ -13,6 +13,13 @@ public class Program
     private static List<ProcessingUtils.FingerprintMatch> _lastFingerprints = new();
     private static List<BatchProcessItem> _batchProcessItems = new();
     private static readonly Queue<int> _recentItems = new(capacity: 10);
+    private static AppSettings _currentSettings = new();
+    private static RestClient _playoutClient = null!;
+    
+    // Batch table filter state
+    private enum BatchFilter { All, Unselected, Selected, HasErrors, NeedsReview }
+    private static BatchFilter _currentBatchFilter = BatchFilter.All;
+    private static List<BatchProcessItem> _filteredBatchItems = new(); // Filtered view of batch items
 
     public static void Main(string[] args)
     {
@@ -37,18 +44,8 @@ public class Program
         
         Console.OutputEncoding = Encoding.UTF8; // Keep for general console output if any leaks
         
-        var settings = SettingsManager.LoadSettings(); // This might trigger GUI for settings
-        
-        Configuration.ClientKey = settings.AcoustIDClientKey;
-        // Query.DelayBetweenRequests is a double in seconds for MusicBrainz.NET
-        // AppSettings.DelayBetweenRequests is also double in seconds.
-        Query.DelayBetweenRequests = settings.DelayBetweenRequests;
-        
-        var options = new RestClientOptions
-        {
-            BaseUrl = new Uri(settings.PlayoutApiUrl.TrimEnd('/'))
-        };
-        var Playoutv6Client = new RestClient(options);
+        _currentSettings = SettingsManager.LoadSettings(); // This might trigger GUI for settings
+        ApplySettings(_currentSettings);
         
         LoadRecentItems();
         
@@ -65,14 +62,15 @@ public class Program
         {
             new MenuBarItem("_File", new MenuItem[]
             {
-                new MenuItem("_Settings", "", () => SettingsManager.ReviewSettingsGui()),
+                new MenuItem("_Settings", "", () => ShowSettingsAndUpdateRuntime()),
                 new MenuItem("_Exit", "", () => Application.RequestStop(), null, null, Key.Q | Key.CtrlMask)
             }),
             new MenuBarItem("_Process", new MenuItem[]
             {
-                new MenuItem("_Single Item", "", () => ProcessSingleItemGui(Playoutv6Client, settings), null, null, Key.S | Key.CtrlMask),
-                new MenuItem("_Batch of Items", "", () => ProcessBatchItemsGui(Playoutv6Client, settings), null, null, Key.B | Key.CtrlMask),
-                new MenuItem("_Recent Items", "", () => ProcessRecentItemsGui(Playoutv6Client, settings), null, null, Key.R | Key.CtrlMask)
+                new MenuItem("_Single Item", "", () => ProcessSingleItemGui(_playoutClient, _currentSettings), null, null, Key.S | Key.CtrlMask),
+                new MenuItem("_Batch of Items", "", () => ProcessBatchItemsGui(_playoutClient, _currentSettings), null, null, Key.B | Key.CtrlMask),
+                new MenuItem("_CSV File", "", () => ProcessCsvFileGui(_playoutClient, _currentSettings), null, null, Key.C | Key.CtrlMask),
+                new MenuItem("_Recent Items", "", () => ProcessRecentItemsGui(_playoutClient, _currentSettings), null, null, Key.R | Key.CtrlMask)
             }),
             new MenuBarItem("_Help", new MenuItem[]
             {
@@ -83,6 +81,30 @@ public class Program
         top.Add(menu, mainWindow);
         Application.Run();
         Application.Shutdown();
+    }
+
+    private static void ApplySettings(AppSettings settings)
+    {
+        Configuration.ClientKey = settings.AcoustIDClientKey;
+        // Query.DelayBetweenRequests is a double in seconds for MusicBrainz.NET
+        // AppSettings.DelayBetweenRequests is also double in seconds.
+        Query.DelayBetweenRequests = settings.DelayBetweenRequests;
+        
+        var options = new RestClientOptions
+        {
+            BaseUrl = new Uri(settings.PlayoutApiUrl.TrimEnd('/'))
+        };
+        _playoutClient = new RestClient(options);
+    }
+
+    private static void ShowSettingsAndUpdateRuntime()
+    {
+        var updatedSettings = SettingsManager.ShowSettingsDialogAndReturn(_currentSettings);
+        if (updatedSettings != null)
+        {
+            _currentSettings = updatedSettings;
+            ApplySettings(_currentSettings);
+        }
     }
 
     private static void ProcessSingleItemGui(RestClient client, AppSettings settings)
@@ -200,7 +222,10 @@ public class Program
         if (_lastFingerprints.Count == 1 && _lastFingerprints[0].RecordingInfo != null)
         {
             matchResult = _lastFingerprints[0].RecordingInfo;
-            DisplayNewMetadataGui(matchResult);
+            if (matchResult != null)
+            {
+                DisplayNewMetadataGui(matchResult);
+            }
         }
         else if (_lastFingerprints.Any())
         {
@@ -378,7 +403,6 @@ public class Program
             if (!int.TryParse(startField.Text.ToString(), out startItem) || startItem <= 0) { errorLabel.Text = "Start item number must be a positive integer."; startField.SetFocus(); return; }
             if (!int.TryParse(endField.Text.ToString(), out endItem)) { errorLabel.Text = "End item number must be a valid integer."; endField.SetFocus(); return; }
             if (endItem < startItem) { errorLabel.Text = "End item number must be >= start item number."; endField.SetFocus(); return; }
-            if (endItem - startItem + 1 > 100) { errorLabel.Text = "Maximum batch size is 100 items."; endField.SetFocus(); return; }
             inputValid = true; Application.RequestStop(dialog);
         };
         var cancelButton = new Button("Cancel") { X = Pos.Right(processButton) + 1, Y = processButton.Y };
@@ -445,13 +469,192 @@ public class Program
         if (matches.Count == 0) { item.Error = "No fingerprint matches found"; item.IsSelected = false; item.AvailableMatches = new List<ProcessingUtils.FingerprintMatch>(); return; }
         
         var bestMatch = ScoreMatches(matches, item.OldTitle, item.OldArtist).FirstOrDefault();
-        if (bestMatch.Score > 0.8 && bestMatch.Match.RecordingInfo != null)
+        if (bestMatch.Score > 0.80 && bestMatch.Match.RecordingInfo != null)
         {
             var recordingInfo = bestMatch.Match.RecordingInfo;
             item.NewTitle = recordingInfo.Title ?? string.Empty;
             item.NewArtist = string.Join(", ", recordingInfo.ArtistCredit?.Select(a => a.Name) ?? Array.Empty<string>());
             item.IsSelected = true; item.ConfidenceScore = bestMatch.Score; item.RecordingInfo = recordingInfo;
         } else { item.IsSelected = false; item.ConfidenceScore = bestMatch.Score; item.AvailableMatches = matches; }
+    }
+
+    private static void ProcessCsvFileGui(RestClient client, AppSettings settings)
+    {
+        var dialog = new Dialog("Process Items from CSV File", 70, 15);
+        
+        var filePathLabel = new Label("CSV File Path:") { X = 1, Y = 1 };
+        var filePathField = new TextField("") { X = Pos.Right(filePathLabel) + 1, Y = 1, Width = Dim.Fill() - 15 };
+        var browseButton = new Button("Browse") { X = Pos.Right(filePathField) + 1, Y = 1 };
+        
+        var instructionLabel = new Label("File should contain cart numbers separated by commas, semicolons, or newlines.") 
+        { 
+            X = 1, Y = Pos.Bottom(filePathLabel) + 1, Width = Dim.Fill() - 2 
+        };
+        
+        var exampleLabel = new Label("Example: 12345,12346,12347 or one number per line") 
+        { 
+            X = 1, Y = Pos.Bottom(instructionLabel) + 1, Width = Dim.Fill() - 2 
+        };
+        
+        var errorLabel = new Label("") { X = 1, Y = Pos.Bottom(exampleLabel) + 1, Width = Dim.Fill() - 2 };
+        var errorColorScheme = new ColorScheme
+        {
+            Normal = Application.Driver.MakeAttribute(Color.Red, dialog.ColorScheme?.Normal.Background ?? Color.Black),
+            Focus = Application.Driver.MakeAttribute(Color.Red, dialog.ColorScheme?.Focus.Background ?? Color.Black),
+            HotNormal = Application.Driver.MakeAttribute(Color.Red, dialog.ColorScheme?.HotNormal.Background ?? Color.Black),
+            HotFocus = Application.Driver.MakeAttribute(Color.Red, dialog.ColorScheme?.HotFocus.Background ?? Color.Black)
+        };
+        errorLabel.ColorScheme = errorColorScheme;
+
+        browseButton.Clicked += () => {
+            var openDialog = new OpenDialog("Select CSV File", "Select a CSV file containing cart numbers");
+            openDialog.AllowedFileTypes = new string[] { ".csv", ".txt" };
+            Application.Run(openDialog);
+            if (!openDialog.Canceled && !string.IsNullOrEmpty(openDialog.FilePath.ToString()))
+            {
+                filePathField.Text = openDialog.FilePath.ToString();
+            }
+        };
+
+        dialog.Add(filePathLabel, filePathField, browseButton, instructionLabel, exampleLabel, errorLabel);
+
+        bool inputValid = false;
+        List<int> cartNumbers = new List<int>();
+        
+        var processButton = new Button("Process") { X = Pos.Center() - 10, Y = Pos.Bottom(dialog) - 3, IsDefault = true };
+        processButton.Clicked += () => {
+            errorLabel.Text = "";
+            var filePath = filePathField.Text.ToString();
+            
+            if (string.IsNullOrEmpty(filePath))
+            {
+                errorLabel.Text = "Please specify a file path.";
+                filePathField.SetFocus();
+                return;
+            }
+            
+            if (!File.Exists(filePath))
+            {
+                errorLabel.Text = "File does not exist.";
+                filePathField.SetFocus();
+                return;
+            }
+            
+            try
+            {
+                cartNumbers = ParseCartNumbersFromFile(filePath);
+                if (cartNumbers.Count == 0)
+                {
+                    errorLabel.Text = "No valid cart numbers found in file.";
+                    return;
+                }
+                
+                inputValid = true;
+                Application.RequestStop(dialog);
+            }
+            catch (Exception ex)
+            {
+                errorLabel.Text = $"Error reading file: {ex.Message}";
+                Log.Error(ex, "Error reading CSV file: {FilePath}", filePath);
+            }
+        };
+        
+        var cancelButton = new Button("Cancel") { X = Pos.Right(processButton) + 1, Y = processButton.Y };
+        cancelButton.Clicked += () => { inputValid = false; Application.RequestStop(dialog); };
+        
+        dialog.AddButton(processButton);
+        dialog.AddButton(cancelButton);
+        filePathField.SetFocus();
+        Application.Run(dialog);
+
+        if (!inputValid) return;
+        
+        // Clear previous batch items and process the cart numbers from CSV
+        _batchProcessItems.Clear();
+
+        var progressDialog = new Dialog("CSV Batch Processing...", 50, 7);
+        var progressLabel = new Label($"Processing {cartNumbers.Count} items from CSV...") { X = 1, Y = 1, Width = Dim.Fill()-2 };
+        var currentItemLabel = new Label("") { X = 1, Y = 2, Width = Dim.Fill()-2 };
+        progressDialog.Add(progressLabel, currentItemLabel);
+        var batchProgressToken = Application.Begin(progressDialog);
+
+        for (int i = 0; i < cartNumbers.Count; i++)
+        {
+            var itemNumber = cartNumbers[i];
+            currentItemLabel.Text = $"Reading item {itemNumber} ({i + 1}/{cartNumbers.Count})..."; 
+            Application.Refresh();
+            
+            try
+            {
+                var request = CreateReadItemRequest(itemNumber, settings.PlayoutReadKey);
+                var apiResponse = client.Get(request);
+                var readItemResponse = ProcessApiResponse(apiResponse, "Failed to parse API response for CSV batch ReadItem");
+                if (readItemResponse == null) 
+                { 
+                    _batchProcessItems.Add(new BatchProcessItem { ItemNumber = itemNumber, Error = "API response was null or failed to parse.", IsSelected = false }); 
+                    continue; 
+                }
+
+                var batchItem = CreateBatchItem(itemNumber, readItemResponse);
+                currentItemLabel.Text = $"Fingerprinting item {itemNumber} ({i + 1}/{cartNumbers.Count})..."; 
+                Application.Refresh();
+                
+                try
+                {
+                    ProcessBatchItemGui(batchItem); // This can throw ProcessingException
+                }
+                catch (ProcessingUtils.ProcessingException pex)
+                {
+                    batchItem.Error = pex.Message; // Store the error message
+                    Log.Warning(pex, "ProcessingException for CSV batch item {ItemNumber} during fingerprinting/lookup.", itemNumber);
+                }
+                catch (Exception ex) // Catch any other unexpected errors from ProcessBatchItemGui
+                {
+                    batchItem.Error = $"Unexpected error: {ex.Message}";
+                    Log.Error(ex, "Unexpected error in ProcessBatchItemGui for CSV item {ItemNumber}", itemNumber);
+                }
+                _batchProcessItems.Add(batchItem); 
+                AddToRecentItems(itemNumber);
+            }
+            catch (Exception ex) // Catch errors from Get/ProcessApiResponse for an item, or other general errors in the loop
+            {
+                Log.Error(ex, $"Outer loop error processing CSV item {itemNumber}");
+                _batchProcessItems.Add(new BatchProcessItem { ItemNumber = itemNumber, Error = $"Failed to process: {ex.Message}", IsSelected = false });
+            }
+        }
+        Application.End(batchProgressToken);
+        ShowBatchResultsGui();
+        ShowBatchEditTableGui(client, settings);
+    }
+
+    private static List<int> ParseCartNumbersFromFile(string filePath)
+    {
+        var cartNumbers = new List<int>();
+        var content = File.ReadAllText(filePath);
+        
+        // Split by various delimiters: comma, semicolon, newline, tab
+        var separators = new char[] { ',', ';', '\n', '\r', '\t' };
+        var parts = content.Split(separators, StringSplitOptions.RemoveEmptyEntries);
+        
+        foreach (var part in parts)
+        {
+            var trimmed = part.Trim();
+            if (string.IsNullOrEmpty(trimmed)) continue;
+            
+            if (int.TryParse(trimmed, out int cartNumber) && cartNumber > 0)
+            {
+                if (!cartNumbers.Contains(cartNumber)) // Avoid duplicates
+                {
+                    cartNumbers.Add(cartNumber);
+                }
+            }
+            else
+            {
+                Log.Warning("Invalid cart number found in CSV file: {InvalidValue}", trimmed);
+            }
+        }
+        
+        return cartNumbers.OrderBy(x => x).ToList(); // Sort for better organization
     }
 
     private static void ShowBatchResultsGui()
@@ -474,43 +677,193 @@ public class Program
     private static void ShowBatchEditTableGui(RestClient client, AppSettings settings)
     {
         if (_batchProcessItems.Count == 0) { MessageBox.Query("Batch Edit", "No items were processed in the batch.", "Ok"); return; }
-        var editDialog = new Dialog("Batch Edit Table", 120, 30);
+        
+        // Reset filter to show all items when opening the table
+        _currentBatchFilter = BatchFilter.All;
+        
+        var editDialog = new Dialog("Batch Edit Table", 140, 35); // Increased width and height
         var tableView = new TableView() { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill() - 3, FullRowSelect = true, };
         var table = new System.Data.DataTable(); // This is the DataTable instance
-        table.Columns.Add("✓", typeof(string)); table.Columns.Add("Item #", typeof(int)); table.Columns.Add("Old Title", typeof(string)); table.Columns.Add("Old Artist", typeof(string)); table.Columns.Add("New Title", typeof(string)); table.Columns.Add("New Artist", typeof(string)); table.Columns.Add("Conf.", typeof(string)); table.Columns.Add("Status", typeof(string));
+        
+        // Add columns with specific widths by using shorter/truncated names if needed
+        table.Columns.Add("✓", typeof(string)); 
+        table.Columns.Add("Item #", typeof(int)); 
+        table.Columns.Add("Old Title", typeof(string)); 
+        table.Columns.Add("Old Artist", typeof(string)); 
+        table.Columns.Add("New Title", typeof(string)); 
+        table.Columns.Add("New Artist", typeof(string)); 
+        table.Columns.Add("Conf.", typeof(string)); 
+        table.Columns.Add("Status", typeof(string));
 
         tableView.Table = table; // Assign the DataTable to the TableView
         RefreshBatchTableView(tableView, table); // Initial population using the same DataTable instance
 
+        // Configure table style
         tableView.Style.AlwaysShowHeaders = true;
+        tableView.Style.ShowHorizontalScrollIndicators = true;
+        tableView.Style.SmoothHorizontalScrolling = true;
+        
         editDialog.Add(tableView);
 
         var editButton = new Button("Edit") { X = 1, Y = Pos.Bottom(tableView) +1 };
         var toggleSelectButton = new Button("Toggle Select") { X = Pos.Right(editButton) + 1, Y = editButton.Y };
         var saveButton = new Button("Save Selected") { X = Pos.Right(toggleSelectButton) + 1, Y = editButton.Y };
-        var exitButton = new Button("Exit") { X = Pos.Right(saveButton) + 5, Y = editButton.Y };
+        
+        // Add filter buttons
+        var filterAllButton = new Button("All") { X = Pos.Right(saveButton) + 3, Y = editButton.Y };
+        var filterUnselectedButton = new Button("Unselected") { X = Pos.Right(filterAllButton) + 1, Y = editButton.Y };
+        var filterSelectedButton = new Button("Selected") { X = Pos.Right(filterUnselectedButton) + 1, Y = editButton.Y };
+        var filterErrorsButton = new Button("Errors") { X = Pos.Right(filterSelectedButton) + 1, Y = editButton.Y };
+        
+        var exitButton = new Button("Exit") { X = Pos.Right(filterErrorsButton) + 3, Y = editButton.Y };
+
+        // Add keyboard shortcuts for the table
+        tableView.KeyPress += (args) => {
+            if (args.KeyEvent.Key == Key.Space)
+            {
+                if (tableView.SelectedRow >= 0 && tableView.SelectedRow < _filteredBatchItems.Count)
+                {
+                    ToggleItemSelectionGui(_filteredBatchItems[tableView.SelectedRow]);
+                    RefreshBatchTableView(tableView, table);
+                    args.Handled = true;
+                }
+            }
+            else if (args.KeyEvent.Key == Key.Enter)
+            {
+                if (tableView.SelectedRow >= 0 && tableView.SelectedRow < _filteredBatchItems.Count)
+                {
+                    var selectedItem = _filteredBatchItems[tableView.SelectedRow];
+                    EditBatchItemGui(selectedItem, client, settings);
+                    RefreshBatchTableView(tableView, table);
+                    args.Handled = true;
+                }
+            }
+            else if (args.KeyEvent.Key == Key.Tab)
+            {
+                // Move focus to the first button
+                editButton.SetFocus();
+                args.Handled = true;
+            }
+        };
 
         editButton.Clicked += () => {
-            if (tableView.SelectedRow < 0 || tableView.SelectedRow >= _batchProcessItems.Count) return;
-            var selectedItem = _batchProcessItems[tableView.SelectedRow];
+            if (tableView.SelectedRow < 0 || tableView.SelectedRow >= _filteredBatchItems.Count) return;
+            var selectedItem = _filteredBatchItems[tableView.SelectedRow];
             EditBatchItemGui(selectedItem, client, settings);
             RefreshBatchTableView(tableView, table);
         };
         toggleSelectButton.Clicked += () => {
-            if (tableView.SelectedRow < 0 || tableView.SelectedRow >= _batchProcessItems.Count) return;
-            ToggleItemSelectionGui(_batchProcessItems[tableView.SelectedRow]);
+            if (tableView.SelectedRow < 0 || tableView.SelectedRow >= _filteredBatchItems.Count) return;
+            ToggleItemSelectionGui(_filteredBatchItems[tableView.SelectedRow]);
             RefreshBatchTableView(tableView, table);
         };
         saveButton.Clicked += () => { SaveBatchChangesGui(client, settings); RefreshBatchTableView(tableView, table); };
+        
+        // Filter button event handlers
+        filterAllButton.Clicked += () => { 
+            _currentBatchFilter = BatchFilter.All; 
+            editDialog.Title = $"Batch Edit Table - All Items ({_batchProcessItems.Count} total)";
+            UpdateFilterButtonStates(filterAllButton, filterUnselectedButton, filterSelectedButton, filterErrorsButton);
+            RefreshBatchTableView(tableView, table); 
+        };
+        filterUnselectedButton.Clicked += () => { 
+            _currentBatchFilter = BatchFilter.Unselected; 
+            var unselectedCount = _batchProcessItems.Count(i => !i.IsSelected);
+            editDialog.Title = $"Batch Edit Table - Unselected Items ({unselectedCount} items)";
+            UpdateFilterButtonStates(filterUnselectedButton, filterAllButton, filterSelectedButton, filterErrorsButton);
+            RefreshBatchTableView(tableView, table); 
+        };
+        filterSelectedButton.Clicked += () => { 
+            _currentBatchFilter = BatchFilter.Selected; 
+            var selectedCount = _batchProcessItems.Count(i => i.IsSelected);
+            editDialog.Title = $"Batch Edit Table - Selected Items ({selectedCount} items)";
+            UpdateFilterButtonStates(filterSelectedButton, filterAllButton, filterUnselectedButton, filterErrorsButton);
+            RefreshBatchTableView(tableView, table); 
+        };
+        filterErrorsButton.Clicked += () => { 
+            _currentBatchFilter = BatchFilter.HasErrors; 
+            var errorCount = _batchProcessItems.Count(i => !string.IsNullOrEmpty(i.Error));
+            editDialog.Title = $"Batch Edit Table - Items with Errors ({errorCount} items)";
+            UpdateFilterButtonStates(filterErrorsButton, filterAllButton, filterUnselectedButton, filterSelectedButton);
+            RefreshBatchTableView(tableView, table); 
+        };
+        
         exitButton.Clicked += () => { Application.RequestStop(editDialog); };
-        editDialog.Add(editButton, toggleSelectButton, saveButton, exitButton);
+        
+        // Set up tab order for button navigation
+        editButton.TabIndex = 0;
+        toggleSelectButton.TabIndex = 1;
+        saveButton.TabIndex = 2;
+        filterAllButton.TabIndex = 3;
+        filterUnselectedButton.TabIndex = 4;
+        filterSelectedButton.TabIndex = 5;
+        filterErrorsButton.TabIndex = 6;
+        exitButton.TabIndex = 7;
+        
+        // Add keyboard shortcut to return focus to table from buttons
+        editButton.KeyPress += (args) => {
+            if (args.KeyEvent.Key == Key.Esc) { tableView.SetFocus(); args.Handled = true; }
+        };
+        toggleSelectButton.KeyPress += (args) => {
+            if (args.KeyEvent.Key == Key.Esc) { tableView.SetFocus(); args.Handled = true; }
+        };
+        saveButton.KeyPress += (args) => {
+            if (args.KeyEvent.Key == Key.Esc) { tableView.SetFocus(); args.Handled = true; }
+        };
+        filterAllButton.KeyPress += (args) => {
+            if (args.KeyEvent.Key == Key.Esc) { tableView.SetFocus(); args.Handled = true; }
+        };
+        filterUnselectedButton.KeyPress += (args) => {
+            if (args.KeyEvent.Key == Key.Esc) { tableView.SetFocus(); args.Handled = true; }
+        };
+        filterSelectedButton.KeyPress += (args) => {
+            if (args.KeyEvent.Key == Key.Esc) { tableView.SetFocus(); args.Handled = true; }
+        };
+        filterErrorsButton.KeyPress += (args) => {
+            if (args.KeyEvent.Key == Key.Esc) { tableView.SetFocus(); args.Handled = true; }
+        };
+        exitButton.KeyPress += (args) => {
+            if (args.KeyEvent.Key == Key.Esc) { tableView.SetFocus(); args.Handled = true; }
+        };
+        
+        editDialog.Add(editButton, toggleSelectButton, saveButton, filterAllButton, filterUnselectedButton, filterSelectedButton, filterErrorsButton, exitButton);
+        
+        // Initialize filter button states (All is active by default)
+        UpdateFilterButtonStates(filterAllButton, filterUnselectedButton, filterSelectedButton, filterErrorsButton);
+        editDialog.Title = $"Batch Edit Table - All Items ({_batchProcessItems.Count} total)";
+        
+        // Set initial focus to the table
+        tableView.SetFocus();
         Application.Run(editDialog);
     }
 
     private static void RefreshBatchTableView(TableView tableView, System.Data.DataTable table)
     {
-        table.Rows.Clear();
+        // Apply current filter to create filtered list
+        _filteredBatchItems.Clear();
         foreach (var item in _batchProcessItems)
+        {
+            bool includeItem = _currentBatchFilter switch
+            {
+                BatchFilter.All => true,
+                BatchFilter.Unselected => !item.IsSelected,
+                BatchFilter.Selected => item.IsSelected,
+                BatchFilter.HasErrors => !string.IsNullOrEmpty(item.Error),
+                BatchFilter.NeedsReview => string.IsNullOrEmpty(item.Error) && 
+                                         ((item.AvailableMatches?.Any() ?? false) && string.IsNullOrEmpty(item.NewTitle)) ||
+                                         (!item.IsSelected && !string.IsNullOrEmpty(item.NewTitle)),
+                _ => true
+            };
+            
+            if (includeItem)
+            {
+                _filteredBatchItems.Add(item);
+            }
+        }
+        
+        // Clear and repopulate table with filtered items
+        table.Rows.Clear();
+        foreach (var item in _filteredBatchItems)
         {
             string selectedMark = item.IsSelected ? "✓" : " ";
             string confidenceStr = item.ConfidenceScore > 0 ? $"{item.ConfidenceScore:P0}" : "-";
@@ -519,9 +872,23 @@ public class Program
             else if (item.AvailableMatches?.Any() ?? false && string.IsNullOrEmpty(item.NewTitle)) status = "Needs Selection";
             else if (!item.IsSelected && !string.IsNullOrEmpty(item.NewTitle)) status = "Review & Select";
             else if (item.IsSelected) status = "Selected"; else status = "Needs Review";
-            table.Rows.Add(selectedMark, item.ItemNumber, item.OldTitle, item.OldArtist, item.NewTitle ?? "", item.NewArtist ?? "", confidenceStr, status);
+            
+            // Truncate long titles to improve table readability
+            string oldTitle = TruncateText(item.OldTitle, 22);
+            string oldArtist = TruncateText(item.OldArtist, 18);
+            string newTitle = TruncateText(item.NewTitle ?? "", 22);
+            string newArtist = TruncateText(item.NewArtist ?? "", 18);
+            string statusText = TruncateText(status, 13);
+            
+            table.Rows.Add(selectedMark, item.ItemNumber, oldTitle, oldArtist, newTitle, newArtist, confidenceStr, statusText);
         }
         tableView.SetNeedsDisplay();
+    }
+
+    private static string TruncateText(string text, int maxLength)
+    {
+        if (string.IsNullOrEmpty(text)) return "";
+        return text.Length <= maxLength ? text : text.Substring(0, maxLength - 3) + "...";
     }
 
     private static void EditBatchItemGui(BatchProcessItem item, RestClient client, AppSettings settings)
@@ -549,7 +916,7 @@ public class Program
                     item.NewArtist = string.Join(", ", recordingInfo.ArtistCredit?.Select(a => a.Name) ?? Array.Empty<string>());
                     item.RecordingInfo = recordingInfo;
                     item.ConfidenceScore = _lastFingerprints.FirstOrDefault(f => f.RecordingInfo == recordingInfo)?.Score ?? item.ConfidenceScore;
-                    newTitleField.Text = item.NewTitle; newArtistField.Text = item.NewArtist; item.Error = null;
+                    newTitleField.Text = item.NewTitle; newArtistField.Text = item.NewArtist; item.Error = string.Empty;
                     MessageBox.Query("Match Selected", "Metadata populated from selection.", "Ok");
                 }
             };
@@ -560,7 +927,7 @@ public class Program
         okButton.Clicked += () => {
             item.NewTitle = newTitleField.Text?.ToString() ?? string.Empty;
             item.NewArtist = newArtistField.Text?.ToString() ?? string.Empty;
-            if (!string.IsNullOrWhiteSpace(item.NewTitle) && !string.IsNullOrWhiteSpace(item.NewArtist)) { item.IsSelected = true; item.Error = null; }
+            if (!string.IsNullOrWhiteSpace(item.NewTitle) && !string.IsNullOrWhiteSpace(item.NewArtist)) { item.IsSelected = true; item.Error = string.Empty; }
             else { item.IsSelected = false; MessageBox.ErrorQuery("Missing Info", "Title and Artist cannot be empty if item is to be saved.", "Ok");}
             Application.RequestStop(editDialog);
         };
@@ -616,7 +983,7 @@ public class Program
 
                 var request = CreateUpdateItemRequest(item.ItemNumber, settings.PlayoutWriteKey, titleUpdate);
                 var result = client.Execute(request, Method.Post);
-                if (result.IsSuccessful) { successCount++; item.Error = null; }
+                if (result.IsSuccessful) { successCount++; item.Error = string.Empty; }
                 else { errorCount++; item.Error = $"API Error: {result.ErrorMessage ?? result.Content ?? "Unknown"}"; item.IsSelected = false; Log.Error($"Failed to save item {item.ItemNumber}: {item.Error}", result.ErrorException); }
             } catch (Exception ex) { errorCount++; item.Error = $"Exception: {ex.Message}"; item.IsSelected = false; Log.Error(ex, $"Exception while saving item {item.ItemNumber}"); }
         }
@@ -731,7 +1098,7 @@ https://github.com/RebelliousPebble/MyriadMusicTagger";
         return result.Trim();
     }
 
-    private static BatchProcessItem CreateBatchItem(int itemNumber, Result response) => new BatchProcessItem { ItemNumber = itemNumber, OldTitle = response.Title ?? string.Empty, OldArtist = response.Copyright?.Performer ?? string.Empty, MediaLocation = response.MediaLocation };
+    private static BatchProcessItem CreateBatchItem(int itemNumber, Result response) => new BatchProcessItem { ItemNumber = itemNumber, OldTitle = response.Title ?? string.Empty, OldArtist = response.Copyright?.Performer ?? string.Empty, MediaLocation = response.MediaLocation ?? string.Empty };
 
     private static List<(ProcessingUtils.FingerprintMatch Match, double Score)> ScoreMatches(List<ProcessingUtils.FingerprintMatch> matches, string existingTitle, string existingArtist)
     {
@@ -742,7 +1109,8 @@ https://github.com/RebelliousPebble/MyriadMusicTagger";
             double score = m.Score;
             double titleSimilarity = CalculateStringSimilarity(matchTitle, parsedTitle);
             double artistSimilarity = CalculateStringSimilarity(matchArtist, parsedArtist);
-            score = (score * 0.5) + (titleSimilarity * 0.3) + (artistSimilarity * 0.2);
+            // Give much more weight to fingerprint (85%), use title/artist as tiebreakers (15% total)
+            score = (score * 0.85) + (titleSimilarity * 0.10) + (artistSimilarity * 0.05);
             return (Match: m, Score: score);
         }).OrderByDescending(m => m.Score).ToList();
     }
@@ -755,5 +1123,29 @@ https://github.com/RebelliousPebble/MyriadMusicTagger";
         if (string.Equals(normalized1, normalized2, StringComparison.OrdinalIgnoreCase)) return 1.0;
         if (normalized1.Contains(normalized2, StringComparison.OrdinalIgnoreCase) || normalized2.Contains(normalized1, StringComparison.OrdinalIgnoreCase)) return 0.8; // Adjusted for case-insensitivity
         return 1.0 - ((double)ComputeLevenshteinDistance(normalized1, normalized2) / Math.Max(normalized1.Length, normalized2.Length));
+    }
+    
+    private static void UpdateFilterButtonStates(Button activeButton, params Button[] inactiveButtons)
+    {
+        // Update the active button text to show it's selected
+        var activeText = activeButton.Text?.ToString() ?? "";
+        if (activeText.EndsWith(" ●"))
+        {
+            // Already marked as active
+            return;
+        }
+        
+        // Remove active indicator from all buttons first
+        foreach (var button in inactiveButtons)
+        {
+            var text = button.Text?.ToString() ?? "";
+            if (text.EndsWith(" ●"))
+            {
+                button.Text = text.Substring(0, text.Length - 2);
+            }
+        }
+        
+        // Add active indicator to the current button
+        activeButton.Text = activeText + " ●";
     }
 }

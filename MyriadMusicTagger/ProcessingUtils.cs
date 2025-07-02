@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
+using AcoustID;
 using AcoustID.Web;
 using MetaBrainz.MusicBrainz;
 using MetaBrainz.MusicBrainz.Interfaces.Entities;
@@ -218,36 +219,90 @@ public class ProcessingUtils
    private static List<FingerprintMatch> LookupRecordings(string fingerprint, int duration)
    {
       Log.Information("Looking up fingerprint on AcoustID/MusicBrainz (Duration: {Duration}s)...", duration);
+      Log.Debug("Fingerprint length: {FingerprintLength} characters", fingerprint.Length);
+      
+      // Check if AcoustID is properly configured
+      if (string.IsNullOrEmpty(Configuration.ClientKey))
+      {
+         Log.Error("AcoustID Configuration.ClientKey is not set! This will cause API calls to fail or hang.");
+         throw new ProcessingException("AcoustID client key is not configured. Please check your settings.");
+      }
+      Log.Information("AcoustID Configuration.ClientKey is configured (length: {KeyLength})", Configuration.ClientKey.Length);
+      Log.Debug("AcoustID ClientKey starts with: {KeyStart}...", Configuration.ClientKey.Length > 4 ? Configuration.ClientKey.Substring(0, 4) : Configuration.ClientKey);
+      
+      Log.Information("Creating AcoustID LookupService...");
       var service = new LookupService();
+      Log.Information("LookupService created successfully.");
       var matches = new List<FingerprintMatch>();
 
       LookupResponse? results = null;
       try
       {
-         // .Result here makes it synchronous, which is fine for this console app context
-         // but would be async/await in a true GUI app.
-         results = service.GetAsync(fingerprint, duration, new[] { "recordingids" }).Result;
+         Log.Information("Calling AcoustID service.GetAsync() with 30 second timeout...");
+         
+         // Use Task.Run with timeout to prevent indefinite hanging
+         var lookupTask = Task.Run(async () => 
+         {
+            return await service.GetAsync(fingerprint, duration, new[] { "recordingids" });
+         });
+
+         // Wait for the task to complete with a 30-second timeout
+         if (lookupTask.Wait(TimeSpan.FromSeconds(30)))
+         {
+            results = lookupTask.Result;
+            Log.Information("AcoustID service.GetAsync() completed successfully.");
+         }
+         else
+         {
+            Log.Error("AcoustID service.GetAsync() timed out after 30 seconds.");
+            throw new ProcessingException("AcoustID lookup timed out after 30 seconds. This may indicate a network issue or service unavailability.");
+         }
 
          // Retry once if the first attempt fails (e.g. service unavailable temporarily)
          if (results == null)
          {
-            Log.Warning("AcoustID lookup returned null on first attempt. Retrying in 200ms...");
+            Log.Warning("AcoustID lookup returned null on first attempt. Retrying with 30 second timeout...");
             Thread.Sleep(200);
-            results = service.GetAsync(fingerprint, duration, new[] { "recordingids" }).Result;
-
-            if (results == null)
+            
+            var retryTask = Task.Run(async () => 
             {
-               Log.Error("AcoustID lookup returned null after retry. Cannot proceed with this fingerprint.");
-               throw new ProcessingException("AcoustID lookup failed after retry (service returned null).");
+               return await service.GetAsync(fingerprint, duration, new[] { "recordingids" });
+            });
+
+            if (retryTask.Wait(TimeSpan.FromSeconds(30)))
+            {
+               results = retryTask.Result;
+               if (results != null)
+               {
+                  Log.Information("AcoustID retry succeeded.");
+               }
+               else
+               {
+                  Log.Error("AcoustID lookup returned null after retry. Cannot proceed with this fingerprint.");
+                  throw new ProcessingException("AcoustID lookup failed after retry (service returned null).");
+               }
+            }
+            else
+            {
+               Log.Error("AcoustID retry timed out after 30 seconds.");
+               throw new ProcessingException("AcoustID retry timed out after 30 seconds.");
             }
          }
       }
       catch (Exception ex)
       {
-         Log.Error(ex, "Exception during AcoustID lookup for fingerprint");
+         Log.Error(ex, "Exception during AcoustID lookup for fingerprint. Exception type: {ExceptionType}", ex.GetType().Name);
+         Log.Error("Exception message: {Message}", ex.Message);
+         if (ex.InnerException != null)
+         {
+            Log.Error("Inner exception: {InnerExceptionType} - {InnerMessage}", ex.InnerException.GetType().Name, ex.InnerException.Message);
+         }
          throw new ProcessingException($"Error during AcoustID lookup: {ex.Message}", ex);
       }
 
+      Log.Information("AcoustID lookup completed. Checking response for errors...");
+
+      Log.Information("AcoustID lookup completed. Checking response for errors...");
       // Check for API errors in the response object itself
       if (!string.IsNullOrEmpty(results.ErrorMessage))
       {
@@ -255,12 +310,16 @@ public class ProcessingUtils
          throw new ProcessingException($"AcoustID API error: {results.ErrorMessage}");
       }
 
+      Log.Information("No API errors found. Checking for results...");
       if (results.Results == null || !results.Results.Any())
       {
         Log.Information("No results found in AcoustID response for fingerprint.");
         return matches; // No results, not an error
       }
 
+      Log.Information("AcoustID returned {ResultCount} raw results.", results.Results.Count());
+
+      Log.Information("AcoustID returned {ResultCount} raw results.", results.Results.Count());
       // Get top matching recordings, ordered by score
       var topMatches = results.Results
          .Where(x => x.Recordings != null && x.Recordings.Count > 0)
@@ -273,14 +332,17 @@ public class ProcessingUtils
          Log.Information("No matching recordings found after filtering AcoustID results.");
          return matches;
       }
-      Log.Information("Found {Count} potential AcoustID matches. Fetching MusicBrainz details...", topMatches.Count);
+      Log.Information("Found {Count} potential AcoustID matches after filtering. Starting MusicBrainz lookups...", topMatches.Count);
 
       // Track whether we've found a high confidence match
       bool foundHighConfidenceMatch = false;
       
+      Log.Information("Starting to process {MatchCount} AcoustID matches...", topMatches.Count);
       // Look up details for each match
       foreach (var match in topMatches)
       {
+         Log.Information("Processing AcoustID match with score {Score} ({RecordingCount} recordings)...", match.Score, match.Recordings?.Count ?? 0);
+         
          // If we already have a high confidence match (>90%), stop processing further potential matches
          if (foundHighConfidenceMatch && match.Score < 0.9)
          {
@@ -288,12 +350,18 @@ public class ProcessingUtils
             break;
          }
 
-         if (match.Recordings == null) continue;
+         if (match.Recordings == null) 
+         {
+            Log.Warning("Match has null recordings, skipping...");
+            continue;
+         }
 
          foreach (var recording in match.Recordings.Take(MaxMatches - matches.Count)) // Ensure we don't exceed MaxMatches overall
          {
-            Log.Information("Looking up MusicBrainz details for AcoustID match (Score: {Score}), MBID: {RecordingId}", match.Score, recording.Id);
+            Log.Information("About to lookup MusicBrainz details for AcoustID match (Score: {Score}), MBID: {RecordingId}", match.Score, recording.Id);
             var details = GetRecordingDetails(recording.Id); // This method handles its own logging for errors
+            Log.Information("MusicBrainz lookup completed for MBID: {RecordingId}. Result: {HasDetails}", recording.Id, details != null ? "Success" : "Failed/Null");
+            
             if (details != null)
             {
                matches.Add(new FingerprintMatch
@@ -301,6 +369,7 @@ public class ProcessingUtils
                   Score = match.Score,
                   RecordingInfo = details
                });
+               Log.Information("Added match to results. Total matches so far: {MatchCount}", matches.Count);
 
                // If this is a high confidence match, mark it
                if (match.Score >= 0.9)
@@ -310,8 +379,7 @@ public class ProcessingUtils
                }
             }
 
-            // Pause briefly to avoid hitting rate limits for MusicBrainz
-            Thread.Sleep(1000); // Increased from 100ms, MusicBrainz is stricter.
+            // The MusicBrainz library now handles rate limiting automatically via Query.DelayBetweenRequests
          }
 
          // If we have a high confidence match, we can break from the outer loop too
@@ -330,7 +398,11 @@ public class ProcessingUtils
    /// </summary>
    private static IRecording? GetRecordingDetails(string recordingId)
    {
-      var query = new Query("MyriadTagger", Version.Parse("1.0")); // App name and version for User-Agent
+      Log.Information("Starting MusicBrainz lookup for recording ID: {RecordingId}", recordingId);
+      
+      // Create a query instance but don't override the global DelayBetweenRequests
+      var query = new Query("MyriadTagger", Version.Parse("1.0"));
+      Log.Debug("Created MusicBrainz Query instance. Current DelayBetweenRequests: {Delay}s", Query.DelayBetweenRequests);
 
       try
       {
@@ -341,17 +413,24 @@ public class ProcessingUtils
             return null;
          }
 
-         Log.Debug("Looking up MusicBrainz recording for MBID: {ParsedGuid}", parsedGuid);
+         Log.Information("About to call query.LookupRecording for MBID: {ParsedGuid}", parsedGuid);
          var includeParams = Include.Aliases | Include.Artists | Include.Genres |
                              Include.Isrcs | Include.Releases | Include.Media |
                              Include.Tags | Include.Ratings;
 
-         return query.LookupRecording(parsedGuid, includeParams);
+         var result = query.LookupRecording(parsedGuid, includeParams);
+         Log.Information("query.LookupRecording completed for MBID: {ParsedGuid}. Result: {HasResult}", parsedGuid, result != null ? "Success" : "Null");
+         return result;
       }
       catch (Exception ex)
       {
          // Specific logging for MusicBrainz lookup failure
-         Log.Error(ex, "Error looking up MusicBrainz recording details for ID: {RecordingId}", recordingId);
+         Log.Error(ex, "Error looking up MusicBrainz recording details for ID: {RecordingId}. Exception type: {ExceptionType}", recordingId, ex.GetType().Name);
+         Log.Error("MusicBrainz exception message: {Message}", ex.Message);
+         if (ex.InnerException != null)
+         {
+            Log.Error("MusicBrainz inner exception: {InnerExceptionType} - {InnerMessage}", ex.InnerException.GetType().Name, ex.InnerException.Message);
+         }
          return null; // Return null, don't throw, allow processing of other matches
       }
    }
