@@ -15,6 +15,7 @@ public class Program
     private static readonly Queue<int> _recentItems = new(capacity: 10);
     private static AppSettings _currentSettings = new();
     private static RestClient _playoutClient = null!;
+    private static CacheManager? _cacheManager = null; // Added CacheManager instance
     
     // Batch table filter state
     private enum BatchFilter { All, Unselected, Selected, HasErrors, NeedsReview }
@@ -43,6 +44,19 @@ public class Program
         Log.Logger = log;
         
         Console.OutputEncoding = Encoding.UTF8; // Keep for general console output if any leaks
+
+        try
+        {
+            _cacheManager = new CacheManager();
+            ProcessingUtils.CacheManagerInstance = _cacheManager; // Make it available to ProcessingUtils
+            Log.Information("CacheManager initialized successfully.");
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to initialize CacheManager. Caching will be disabled.");
+            // Application can continue without caching, but log the error.
+            // Optionally, show a message to the user if this is critical.
+        }
         
         _currentSettings = SettingsManager.LoadSettings(); // This might trigger GUI for settings
         ApplySettings(_currentSettings);
@@ -80,6 +94,10 @@ public class Program
         
         top.Add(menu, mainWindow);
         Application.Run();
+
+        // Dispose of CacheManager when application shuts down
+        _cacheManager?.Dispose();
+        Log.Information("Application shutting down.");
         Application.Shutdown();
     }
 
