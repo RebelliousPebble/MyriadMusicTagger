@@ -6,6 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="DuplicateFinder.cs" />
+    <Compile Include="DuplicateItem.cs" />
     <PackageReference Include="AcoustID.NET" Version="1.3.3"/>
     <PackageReference Include="CsvHelper" Version="33.0.1"/>
     <PackageReference Include="MetaBrainz.MusicBrainz" Version="6.1.0"/>

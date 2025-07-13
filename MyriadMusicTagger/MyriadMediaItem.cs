@@ -61,27 +61,35 @@ public class MediaLength
 
 public class Result
 {
-   public int MediaId { get; set; }
-   public string? CutId { get; set; }
-   public string? Guid { get; set; }
-   public string? OriginalMediaLocation { get; set; }
-   public Levels? Levels { get; set; }
-   public int Type { get; set; }
-   public DateTime CreatedDateTime { get; set; }
-   public DateTime LastModDateTime { get; set; }
-   public int TitleId { get; set; }
-   public string? Title { get; set; }
-   public string? AlbumTitle { get; set; }
-   public string? TotalLength { get; set; }
-   public AudioFormat? AudioFormat { get; set; }
-   public Copyright? Copyright { get; set; }
-   public int InformationLevel { get; set; }
-   public bool FromDb { get; set; }
-   public int ContentExists { get; set; }
-   public int LocalContentExists { get; set; }
-   public string? MediaLocation { get; set; }
-   public MediaLength? MediaLength { get; set; }
-   public Extro? Extro { get; set; }
+    public int MediaId { get; set; }
+    public string? CutId { get; set; }
+    public string? Guid { get; set; }
+    public string? OriginalMediaLocation { get; set; }
+    public Levels? Levels { get; set; }
+    public int Type { get; set; }
+    public DateTime CreatedDateTime { get; set; }
+    public DateTime LastModDateTime { get; set; }
+    public int TitleId { get; set; }
+    public string? Title { get; set; }
+    public string? AlbumTitle { get; set; }
+    public string? TotalLength { get; set; }
+    public AudioFormat? AudioFormat { get; set; }
+    public Copyright? Copyright { get; set; }
+    public int InformationLevel { get; set; }
+    public bool FromDb { get; set; }
+    public int ContentExists { get; set; }
+    public int LocalContentExists { get; set; }
+    public string? MediaLocation { get; set; }
+    public MediaLength? MediaLength { get; set; }
+    public Extro? Extro { get; set; }
+    public List<ArtistInfo> Artists { get; set; } = new();
+    public int FirstReleaseYear { get; set; }
+}
+
+public class ArtistInfo
+{
+    public int ArtistId { get; set; }
+    public string? ArtistName { get; set; }
 }
 
 public class MyriadMediaItem

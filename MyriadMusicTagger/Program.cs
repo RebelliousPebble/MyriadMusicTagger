@@ -71,7 +71,8 @@ public class Program
                 new MenuItem("_Single Item", "", () => ProcessSingleItemGui(_playoutClient, _currentSettings), null, null, Key.S | Key.CtrlMask),
                 new MenuItem("_Batch of Items", "", () => ProcessBatchItemsGui(_playoutClient, _currentSettings), null, null, Key.B | Key.CtrlMask),
                 new MenuItem("_CSV File", "", () => ProcessCsvFileGui(_playoutClient, _currentSettings), null, null, Key.C | Key.CtrlMask),
-                new MenuItem("_Recent Items", "", () => ProcessRecentItemsGui(_playoutClient, _currentSettings), null, null, Key.R | Key.CtrlMask)
+                new MenuItem("_Recent Items", "", () => ProcessRecentItemsGui(_playoutClient, _currentSettings), null, null, Key.R | Key.CtrlMask),
+                new MenuItem("Find _Duplicates", "", () => FindDuplicatesGui(_resClient, _currentSettings))
             }),
             new MenuBarItem("_Help", new MenuItem[]
             {
@@ -1154,5 +1155,114 @@ https://github.com/RebelliousPebble/MyriadMusicTagger";
         
         // Add active indicator to the current button
         activeButton.Text = activeText + " ●";
+    }
+
+    private static void FindDuplicatesGui(RestClient client, AppSettings settings)
+    {
+        var finder = new DuplicateFinder(client, settings);
+        var loadingDialog = new Dialog("Finding Duplicates...", 50, 7);
+        loadingDialog.Add(new Label("Searching for duplicate tracks...") { X = 1, Y = 1 });
+        var loadingToken = Application.Begin(loadingDialog);
+
+        List<List<DuplicateItem>> duplicateGroups;
+        try
+        {
+            duplicateGroups = finder.FindDuplicates().Result;
+        }
+        finally
+        {
+            Application.End(loadingToken);
+        }
+
+        if (duplicateGroups.Count == 0)
+        {
+            MessageBox.Query("No Duplicates Found", "No duplicate tracks were found in the database.", "Ok");
+            return;
+        }
+
+        ShowDuplicatesGui(client, settings, duplicateGroups);
+    }
+
+    private static void ShowDuplicatesGui(RestClient client, AppSettings settings, List<List<DuplicateItem>> duplicateGroups)
+    {
+        var dialog = new Dialog("Duplicate Tracks", 140, 35);
+        var tableView = new TableView
+        {
+            X = 0,
+            Y = 0,
+            Width = Dim.Fill(),
+            Height = Dim.Fill() - 3,
+            FullRowSelect = true,
+        };
+
+        var table = new System.Data.DataTable();
+        table.Columns.Add("Keep", typeof(string));
+        table.Columns.Add("Media ID", typeof(int));
+        table.Columns.Add("Title", typeof(string));
+        table.Columns.Add("Artists", typeof(string));
+        table.Columns.Add("Album", typeof(string));
+        table.Columns.Add("Year", typeof(int));
+        table.Columns.Add("Length", typeof(string));
+        table.Columns.Add("Bitrate", typeof(int));
+
+        tableView.Table = table;
+        PopulateDuplicatesTable(table, duplicateGroups);
+
+        dialog.Add(tableView);
+
+        var deleteButton = new Button("Delete Selected") { X = Pos.Center() - 15, Y = Pos.Bottom(tableView) + 1 };
+        var cancelButton = new Button("Cancel") { X = Pos.Right(deleteButton) + 1, Y = deleteButton.Y };
+
+        deleteButton.Clicked += () =>
+        {
+            var itemsToDelete = duplicateGroups.SelectMany(g => g.Where(i => !i.Keep)).Select(i => i.MediaId).ToList();
+            if (itemsToDelete.Count == 0)
+            {
+                MessageBox.Query("No Items to Delete", "No items are marked for deletion.", "Ok");
+                return;
+            }
+
+            if (MessageBox.Query("Confirm Deletion", $"Are you sure you want to delete {itemsToDelete.Count} item(s)?", "Yes", "No") == 0)
+            {
+                var finder = new DuplicateFinder(client, settings);
+                var success = finder.DeleteItems(itemsToDelete).Result;
+                if (success)
+                {
+                    MessageBox.Query("Deletion Successful", $"{itemsToDelete.Count} items were deleted.", "Ok");
+                    Application.RequestStop(dialog);
+                }
+                else
+                {
+                    MessageBox.ErrorQuery("Deletion Failed", "Some items could not be deleted. Check the log for details.", "Ok");
+                }
+            }
+        };
+
+        cancelButton.Clicked += () => Application.RequestStop(dialog);
+
+        dialog.Add(deleteButton, cancelButton);
+        Application.Run(dialog);
+    }
+
+    private static void PopulateDuplicatesTable(System.Data.DataTable table, List<List<DuplicateItem>> duplicateGroups)
+    {
+        table.Rows.Clear();
+        foreach (var group in duplicateGroups)
+        {
+            foreach (var item in group)
+            {
+                table.Rows.Add(
+                    item.Keep ? "✓" : "",
+                    item.MediaId,
+                    item.Title,
+                    string.Join(", ", item.Artists),
+                    item.Album,
+                    item.Year,
+                    item.TotalLength,
+                    item.BitRate);
+            }
+            // Add a separator row
+            table.Rows.Add(new object[] { "---", null, "--------------------", "--------------------", "--------------------", null, "---", null });
+        }
     }
 }
