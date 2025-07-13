@@ -70,7 +70,7 @@ namespace MyriadMusicTagger
 
         private static AppSettings ShowSettingsDialog(AppSettings currentSettings)
         {
-            var dialog = new Dialog("Application Settings", 70, 18); // Width, Height
+            var dialog = new Dialog("Application Settings", 70, 24); // Width, Height - increased height for RES fields
              // Deep copy for cancel functionality
             var originalSettingsJson = JsonConvert.SerializeObject(currentSettings);
 
@@ -83,13 +83,22 @@ namespace MyriadMusicTagger
             var playoutReadKeyLabel = new Label("Playout Read Key:") { X = 1, Y = Pos.Bottom(playoutWriteKeyLabel) };
             var playoutReadKeyField = new TextField(currentSettings.PlayoutReadKey ?? string.Empty) { X = Pos.Left(acoustIdKeyField), Y = Pos.Top(playoutReadKeyLabel), Width = Dim.Fill(5) };
 
-            var delayLabel = new Label("Delay MusicBrainz (s):") { X = 1, Y = Pos.Bottom(playoutReadKeyLabel) };
+            var resWriteKeyLabel = new Label("RES Write Key (optional):") { X = 1, Y = Pos.Bottom(playoutReadKeyLabel) };
+            var resWriteKeyField = new TextField(currentSettings.RESWriteKey ?? string.Empty) { X = Pos.Left(acoustIdKeyField), Y = Pos.Top(resWriteKeyLabel), Width = Dim.Fill(5) };
+
+            var resReadKeyLabel = new Label("RES Read Key (optional):") { X = 1, Y = Pos.Bottom(resWriteKeyLabel) };
+            var resReadKeyField = new TextField(currentSettings.RESReadKey ?? string.Empty) { X = Pos.Left(acoustIdKeyField), Y = Pos.Top(resReadKeyLabel), Width = Dim.Fill(5) };
+
+            var delayLabel = new Label("Delay MusicBrainz (s):") { X = 1, Y = Pos.Bottom(resReadKeyLabel) };
             var delayField = new TextField(currentSettings.DelayBetweenRequests.ToString("0.0##")) { X = Pos.Left(acoustIdKeyField), Y = Pos.Top(delayLabel), Width = Dim.Fill(5) }; // double to string is fine
 
             var apiUrlLabel = new Label("Playout API URL:") { X = 1, Y = Pos.Bottom(delayLabel) };
             var apiUrlField = new TextField(currentSettings.PlayoutApiUrl ?? string.Empty) { X = Pos.Left(acoustIdKeyField), Y = Pos.Top(apiUrlLabel), Width = Dim.Fill(5) };
 
-            var errorLabel = new Label("") { X = 1, Y = Pos.Bottom(apiUrlLabel) + 1, Width = Dim.Fill(2), Height = 3 /* Label is multiline by default if text has \n and height allows */ };
+            var resApiUrlLabel = new Label("RES API URL (optional):") { X = 1, Y = Pos.Bottom(apiUrlLabel) };
+            var resApiUrlField = new TextField(currentSettings.RESApiUrl ?? string.Empty) { X = Pos.Left(acoustIdKeyField), Y = Pos.Top(resApiUrlLabel), Width = Dim.Fill(5) };
+
+            var errorLabel = new Label("") { X = 1, Y = Pos.Bottom(resApiUrlLabel) + 1, Width = Dim.Fill(2), Height = 3 /* Label is multiline by default if text has \n and height allows */ };
             // Set color scheme for error label
             var errorColorScheme = new ColorScheme
             {
@@ -104,8 +113,11 @@ namespace MyriadMusicTagger
             dialog.Add(acoustIdKeyLabel, acoustIdKeyField,
                        playoutWriteKeyLabel, playoutWriteKeyField,
                        playoutReadKeyLabel, playoutReadKeyField,
+                       resWriteKeyLabel, resWriteKeyField,
+                       resReadKeyLabel, resReadKeyField,
                        delayLabel, delayField,
                        apiUrlLabel, apiUrlField,
+                       resApiUrlLabel, resApiUrlField,
                        errorLabel);
 
             bool settingsSaved = false;
@@ -116,7 +128,10 @@ namespace MyriadMusicTagger
                     AcoustIDClientKey = acoustIdKeyField.Text?.ToString() ?? string.Empty,
                     PlayoutWriteKey = playoutWriteKeyField.Text?.ToString() ?? string.Empty, // Optional, can be empty
                     PlayoutReadKey = playoutReadKeyField.Text?.ToString() ?? string.Empty,
+                    RESWriteKey = resWriteKeyField.Text?.ToString() ?? string.Empty, // Optional, can be empty
+                    RESReadKey = resReadKeyField.Text?.ToString() ?? string.Empty, // Optional, can be empty
                     PlayoutApiUrl = apiUrlField.Text?.ToString() ?? string.Empty,
+                    RESApiUrl = resApiUrlField.Text?.ToString() ?? string.Empty, // Optional, can be empty
                 };
 
                 var validationErrors = new StringBuilder();
@@ -137,6 +152,11 @@ namespace MyriadMusicTagger
                     validationErrors.AppendLine("- Playout API URL is required and must be a valid HTTP/HTTPS URL.");
                 }
 
+                if (!string.IsNullOrWhiteSpace(tempSettings.RESApiUrl) && !UrlPattern.IsMatch(tempSettings.RESApiUrl))
+                {
+                    validationErrors.AppendLine("- RES API URL must be a valid HTTP/HTTPS URL if provided.");
+                }
+
                 if (validationErrors.Length > 0)
                 {
                     errorLabel.Text = validationErrors.ToString();
@@ -147,8 +167,11 @@ namespace MyriadMusicTagger
                 currentSettings.AcoustIDClientKey = tempSettings.AcoustIDClientKey;
                 currentSettings.PlayoutWriteKey = tempSettings.PlayoutWriteKey;
                 currentSettings.PlayoutReadKey = tempSettings.PlayoutReadKey;
+                currentSettings.RESWriteKey = tempSettings.RESWriteKey;
+                currentSettings.RESReadKey = tempSettings.RESReadKey;
                 currentSettings.DelayBetweenRequests = tempSettings.DelayBetweenRequests;
                 currentSettings.PlayoutApiUrl = tempSettings.PlayoutApiUrl;
+                currentSettings.RESApiUrl = tempSettings.RESApiUrl;
 
                 SaveSettingsToFile(currentSettings);
                 settingsSaved = true;

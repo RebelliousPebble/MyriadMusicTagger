@@ -15,6 +15,7 @@ public class Program
     private static readonly Queue<int> _recentItems = new(capacity: 10);
     private static AppSettings _currentSettings = new();
     private static RestClient _playoutClient = null!;
+    private static RestClient _resClient = null!;
     
     // Batch table filter state
     private enum BatchFilter { All, Unselected, Selected, HasErrors, NeedsReview }
@@ -89,12 +90,18 @@ public class Program
         // Query.DelayBetweenRequests is a double in seconds for MusicBrainz.NET
         // AppSettings.DelayBetweenRequests is also double in seconds.
         Query.DelayBetweenRequests = settings.DelayBetweenRequests;
-        
-        var options = new RestClientOptions
+
+        var playoutOptions = new RestClientOptions
         {
             BaseUrl = new Uri(settings.PlayoutApiUrl.TrimEnd('/'))
         };
-        _playoutClient = new RestClient(options);
+        _playoutClient = new RestClient(playoutOptions);
+
+        var resOptions = new RestClientOptions
+        {
+            BaseUrl = new Uri(settings.RESApiUrl.TrimEnd('/'))
+        };
+        _resClient = new RestClient(resOptions);
     }
 
     private static void ShowSettingsAndUpdateRuntime()

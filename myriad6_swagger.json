@@ -1,0 +1,7578 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "version": "v6",
+    "title": "Myriad Playout v6 by Broadcast Radio"
+  },
+  "host": "localhost:9180",
+  "basePath": "/BrMyriadPlayout/v6",
+  "schemes": [
+    "http"
+  ],
+  "paths": {
+    "/api/Application/GetStatus": {
+      "get": {
+        "tags": [
+          "Application"
+        ],
+        "summary": "Returns the basic status of Myriad Playout and any open Stations",
+        "operationId": "Application_GetStatus",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ApplicationStatus"
+            }
+          }
+        }
+      }
+    },
+    "/api/Application/GetVersion": {
+      "get": {
+        "tags": [
+          "Application"
+        ],
+        "summary": "Returns the exact version of Myriad Playout",
+        "operationId": "Application_GetVersion",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ObjectResult[ApplicationVersion]"
+            }
+          }
+        }
+      }
+    },
+    "/api/Application/GetProfileName": {
+      "get": {
+        "tags": [
+          "Application"
+        ],
+        "summary": "Returns the ProfileName that Myriad was started with. The default is \"Profile1\"",
+        "operationId": "Application_GetProfileName",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/StringResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Commands/Execute": {
+      "put": {
+        "tags": [
+          "Commands"
+        ],
+        "summary": "Executes the specified command. See the Command Documentation for more details",
+        "operationId": "Commands_Execute",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "commandText",
+            "in": "query",
+            "description": "The command to execute.",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ObjectResult[PerformResult]"
+            }
+          }
+        }
+      }
+    },
+    "/api/Databases/GetDescription": {
+      "get": {
+        "tags": [
+          "Databases"
+        ],
+        "summary": "Returns the details of the active Myriad Station Database",
+        "operationId": "Databases_GetDescription",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ObjectResult[DatabaseDescription]"
+            }
+          }
+        }
+      }
+    },
+    "/api/Favourites/GetCurrentSet": {
+      "get": {
+        "tags": [
+          "Favourites"
+        ],
+        "summary": "Returns the currently selected Favourites Set",
+        "operationId": "Favourites_GetCurrentSet",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ObjectResult[FavouritesSet]"
+            }
+          }
+        }
+      }
+    },
+    "/api/Favourites/GetSet": {
+      "get": {
+        "tags": [
+          "Favourites"
+        ],
+        "summary": "Gets the specified Favourites Set",
+        "operationId": "Favourites_GetSet",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "setsType",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "string",
+            "enum": [
+              "Unknown",
+              "Personal",
+              "Shared",
+              "Network"
+            ]
+          },
+          {
+            "name": "title",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ObjectResult[FavouritesSet]"
+            }
+          }
+        }
+      }
+    },
+    "/api/Favourites/GetSetsList": {
+      "get": {
+        "tags": [
+          "Favourites"
+        ],
+        "summary": "Gets a list of all available Sets for the specified type",
+        "operationId": "Favourites_GetSetsList",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "setsType",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "string",
+            "enum": [
+              "Unknown",
+              "Personal",
+              "Shared",
+              "Network"
+            ]
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ObjectResult[FavouritesSetList]"
+            }
+          }
+        }
+      }
+    },
+    "/api/Favourites/PlayItem": {
+      "get": {
+        "tags": [
+          "Favourites"
+        ],
+        "summary": "Plays the specified Favourite by Index or MediaId from the currently selected set.",
+        "operationId": "Favourites_PlayItem",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "favouriteIndex",
+            "in": "query",
+            "description": "Play this specific Favourite from the current set",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "mediaId",
+            "in": "query",
+            "description": "Play a specific media item from the Current set, or dynamically if not assigned to the current set",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "playMode",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "string",
+            "enum": [
+              "StartNew",
+              "RestartPlaying",
+              "StartStop",
+              "SingleItem"
+            ]
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/IntegerResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Favourites/CueItem": {
+      "get": {
+        "tags": [
+          "Favourites"
+        ],
+        "summary": "Cues the specified Favourite by Index or MediaId from the currently selected set.",
+        "operationId": "Favourites_CueItem",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "favouriteIndex",
+            "in": "query",
+            "description": "Cue this specific Favourite from the current set",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "mediaId",
+            "in": "query",
+            "description": "Cue a specific media item from the Current set, or dynamically if not assigned to the current set",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "playMode",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "string",
+            "enum": [
+              "StartNew",
+              "RestartPlaying",
+              "StartStop",
+              "SingleItem"
+            ]
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/IntegerResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Hardware/ReadLine": {
+      "get": {
+        "tags": [
+          "Hardware"
+        ],
+        "summary": "Reads the current state of the specified line on the specified device",
+        "operationId": "Hardware_ReadLine",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "deviceIndex",
+            "in": "query",
+            "description": "The device index - starts at zero",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "lineNumber",
+            "in": "query",
+            "description": "The line number - starts at 1",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/EnumResult[HardwareLineStateEnum]"
+            }
+          }
+        }
+      }
+    },
+    "/api/Hardware/WriteLine": {
+      "post": {
+        "tags": [
+          "Hardware"
+        ],
+        "summary": "Sets the the specified line on the specified device to the new lineState",
+        "operationId": "Hardware_WriteLine",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "deviceIndex",
+            "in": "query",
+            "description": "The device index - starts at zero",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "lineNumber",
+            "in": "query",
+            "description": "The line number - starts at 1",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "lineState",
+            "in": "query",
+            "description": "The new state",
+            "required": true,
+            "type": "string",
+            "enum": [
+              "Invalid",
+              "Clear",
+              "Set",
+              "Flash",
+              "Pulse"
+            ]
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Hardware/PulseLine": {
+      "post": {
+        "tags": [
+          "Hardware"
+        ],
+        "summary": "Sets the specified line on the specified device to the new lineState",
+        "operationId": "Hardware_PulseLine",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "deviceIndex",
+            "in": "query",
+            "description": "The device index - starts at zero",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "lineNumber",
+            "in": "query",
+            "description": "The line number - starts at 1",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "pulseDurationSeconds",
+            "in": "query",
+            "description": "The duration of the pulse, in seconds.  Can be a non-whole number, e.g. 2.75. Minimum is 0.001",
+            "required": true,
+            "type": "number",
+            "format": "float"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Log/ReadDisplayItems": {
+      "get": {
+        "tags": [
+          "Log"
+        ],
+        "summary": "Reads all the basic information for the items for the specified hours.\r\n\r\nAvoid reading too many items in a single call to avoid causing performance issues during Playout",
+        "operationId": "Log_ReadDisplayItems",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the 'current' station",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "startSequenceBase",
+            "in": "query",
+            "description": "The first hour in the format yyyymmddhh",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "endSequenceBase",
+            "in": "query",
+            "description": "The final hour in the format yyyymmddhh",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ObjectResult[LogItems]"
+            }
+          }
+        }
+      }
+    },
+    "/api/Log/ReadItems": {
+      "get": {
+        "tags": [
+          "Log"
+        ],
+        "summary": "Reads all the item information for the specified hours.\r\n\r\nAvoid reading too many items in a single call to avoid causing performance issues during Playout",
+        "operationId": "Log_ReadItems",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the 'current' station",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "startSequenceBase",
+            "in": "query",
+            "description": "The first hour in the format yyyymmddhh",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "endSequenceBase",
+            "in": "query",
+            "description": "The final hour in the format yyyymmddhh",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "additionalInfo",
+            "in": "query",
+            "required": true,
+            "type": "string",
+            "enum": [
+              "None",
+              "MediaItem",
+              "HasNotes",
+              "FullNotes",
+              "Full"
+            ]
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ObjectResult[LogItems]"
+            }
+          }
+        }
+      }
+    },
+    "/api/Log/SetItemChainType": {
+      "post": {
+        "tags": [
+          "Log"
+        ],
+        "summary": "Sets the chain type for the specified Log Item",
+        "operationId": "Log_SetItemChainType",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the 'current' station",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "logReference",
+            "in": "query",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "chainType",
+            "in": "query",
+            "description": "The new chain type",
+            "required": true,
+            "type": "string",
+            "enum": [
+              "Stop",
+              "Auto",
+              "Sweep"
+            ]
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Log/InsertMediaItem": {
+      "put": {
+        "tags": [
+          "Log"
+        ],
+        "summary": "Inserts a media Item at the specified index in an existing Log hour",
+        "operationId": "Log_InsertMediaItem",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the 'current' station",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "logHourSequence",
+            "in": "query",
+            "description": "The hour in the format yyyymmddhh",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "positionIndex",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "mediaId",
+            "in": "query",
+            "description": "The Media ID to insert",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Log/InsertMediaItemNext": {
+      "put": {
+        "tags": [
+          "Log"
+        ],
+        "summary": "Inserts a media Item immediately after the currently playing item.\r\n\r\nThe specified log must be running on this computer.",
+        "operationId": "Log_InsertMediaItemNext",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the 'current' station",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "mediaId",
+            "in": "query",
+            "description": "The Media ID to insert",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Media/ReadItem": {
+      "get": {
+        "tags": [
+          "Media"
+        ],
+        "summary": "Returns the specified Media Item. Use additionalInfo to request more detailed information",
+        "operationId": "Media_ReadItem",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "mediaId",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "attributesStationId",
+            "in": "query",
+            "description": "Specify -1 for the current station",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "additionalInfo",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "None",
+              "HasNotes",
+              "FullNotes",
+              "FirstImage",
+              "AllImages",
+              "Copyright",
+              "CustomFields",
+              "FullAttributes",
+              "FirstReleaseYear",
+              "Album",
+              "AllDates",
+              "ItemScheduling",
+              "PerStationAllAttributes",
+              "FirstCategory",
+              "ExtraFields",
+              "MediaFormat",
+              "Full"
+            ]
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ObjectResult[MediaItem]"
+            }
+          }
+        }
+      }
+    },
+    "/api/Media/ReadItems": {
+      "get": {
+        "tags": [
+          "Media"
+        ],
+        "summary": "Reads multiple items in a single request. Limited to 1000 items per request.",
+        "operationId": "Media_ReadItems",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "mediaId",
+            "in": "query",
+            "description": "The media Ids to return.",
+            "required": true,
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "attributesStationId",
+            "in": "query",
+            "description": "Specify -1 to use the current station",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "additionalInfo",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "None",
+              "HasNotes",
+              "FullNotes",
+              "FirstImage",
+              "AllImages",
+              "Copyright",
+              "CustomFields",
+              "FullAttributes",
+              "FirstReleaseYear",
+              "Album",
+              "AllDates",
+              "ItemScheduling",
+              "PerStationAllAttributes",
+              "FirstCategory",
+              "ExtraFields",
+              "MediaFormat",
+              "Full"
+            ]
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ObjectResult[MediaItems]"
+            }
+          }
+        }
+      }
+    },
+    "/api/Media/ReadItemsInRange": {
+      "get": {
+        "tags": [
+          "Media"
+        ],
+        "summary": "Read all the items in a specified range. Limited to 1000 items per request.",
+        "operationId": "Media_ReadItemsInRange",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "firstMediaId",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "lastMediaId",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "attributesStationId",
+            "in": "query",
+            "description": "Specify -1 to use the current station",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "additionalInfo",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "None",
+              "HasNotes",
+              "FullNotes",
+              "FirstImage",
+              "AllImages",
+              "Copyright",
+              "CustomFields",
+              "FullAttributes",
+              "FirstReleaseYear",
+              "Album",
+              "AllDates",
+              "ItemScheduling",
+              "PerStationAllAttributes",
+              "FirstCategory",
+              "ExtraFields",
+              "MediaFormat",
+              "Full"
+            ]
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ObjectResult[MediaItems]"
+            }
+          }
+        }
+      }
+    },
+    "/api/Media/SetItemExtroExact": {
+      "post": {
+        "tags": [
+          "Media"
+        ],
+        "summary": "Sets the Item' Extro for the specified Media ID to an exact time.",
+        "description": "The <b>extroTime</b> parameter is the time in seconds and must be between the Media Items' Overall Start and Overall End<br /><br />\r\nThe <b>extroTime</b> is the number of seconds from zero, so if the Media Item has an Overall Start set to 30 seconds, then setting an extroTime of 35 will result in setting the extro to 5 seconds after the Overall Start.",
+        "operationId": "Media_SetItemExtroExact",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "mediaId",
+            "in": "query",
+            "description": "Must be a valid ID for a non-empty media item",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "extroTime",
+            "in": "query",
+            "description": "The exact time for the extro in seconds.",
+            "required": true,
+            "type": "number",
+            "format": "double"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Media/SetItemExtroRelative": {
+      "post": {
+        "tags": [
+          "Media"
+        ],
+        "summary": "Sets the Item' Extro for the specified Media ID relative to it's overall end",
+        "description": "The <b>extroOffset</b> parameter is the time in seconds and is the number of seconds before the overall end - e.g. 3.5 means 3.5 seconds before the overall end.",
+        "operationId": "Media_SetItemExtroRelative",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "mediaId",
+            "in": "query",
+            "description": "Must be a valid ID for a non-empty media item",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "extroOffset",
+            "in": "query",
+            "description": "The number of seconds before the overall end",
+            "required": true,
+            "type": "number",
+            "format": "double"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Media/SetItemTitling": {
+      "post": {
+        "tags": [
+          "Media"
+        ],
+        "summary": "Set the titling and/or artist information for the specified Media ID.",
+        "description": "You can clear fields by sending an empty string, omitting a field leaves the existing value in place.<br /><br />\r\nYou cannot clear the <b>ItemTitle</b> field.<br />",
+        "operationId": "Media_SetItemTitling",
+        "consumes": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml",
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "mediaId",
+            "in": "query",
+            "description": "Must be a valid ID for a non-empty media item",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "params",
+            "in": "body",
+            "description": "",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/SetItemMetadataParams"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Media/SetItemType": {
+      "post": {
+        "tags": [
+          "Media"
+        ],
+        "summary": "Set the Item Type for the specified Media ID, optionally also se the isSweeper state",
+        "operationId": "Media_SetItemType",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "mediaId",
+            "in": "query",
+            "description": "Must be a valid ID for a non-empty media item",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "newItemType",
+            "in": "query",
+            "description": "The new item type for the media item",
+            "required": true,
+            "type": "string",
+            "enum": [
+              "BasicMediaItem",
+              "Link",
+              "Advert",
+              "Song",
+              "VoiceLink",
+              "NewsMedia"
+            ]
+          },
+          {
+            "name": "isSweeper",
+            "in": "query",
+            "description": "Optionally update the IsSweeper property",
+            "required": false,
+            "type": "boolean"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/OnAir/GetStatus": {
+      "get": {
+        "tags": [
+          "OnAir"
+        ],
+        "summary": "Gets the current OnAir control status for the specified station",
+        "operationId": "OnAir_GetStatus",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the 'current' station",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/EnumResult[StatusEnum]"
+            }
+          }
+        }
+      }
+    },
+    "/api/OnAir/RequestControl": {
+      "post": {
+        "tags": [
+          "OnAir"
+        ],
+        "summary": "Requests Myriad to attempt to take OnAir control for the specified station",
+        "operationId": "OnAir_RequestControl",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the 'current' station",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/OnAir/ReleaseControl": {
+      "post": {
+        "tags": [
+          "OnAir"
+        ],
+        "summary": "Tells Myriad to release OnAir control for the specified station",
+        "operationId": "OnAir_ReleaseControl",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the 'current' station",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/OnAir/GetNowPlaying": {
+      "get": {
+        "tags": [
+          "OnAir"
+        ],
+        "summary": "Gets the Now Playing information for the specified station",
+        "operationId": "OnAir_GetNowPlaying",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the current station",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ObjectResult[List[SimpleNowPlayingItem]]"
+            }
+          }
+        }
+      }
+    },
+    "/api/OnAir/SetNowPlayingSimple": {
+      "get": {
+        "tags": [
+          "OnAir"
+        ],
+        "summary": "Sets the Now Playing information for the specified station",
+        "operationId": "OnAir_SetNowPlayingSimple",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the current station",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "itemType",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "string",
+            "enum": [
+              "Empty",
+              "AbsoluteTime",
+              "BasicMediaItem",
+              "Link",
+              "Advert",
+              "Hardware",
+              "StationRules",
+              "Song",
+              "Script",
+              "VoiceLink",
+              "Command",
+              "SplitGroup",
+              "SplitAdvert",
+              "AutoHook",
+              "GapTime",
+              "SoftTime",
+              "ResetTime",
+              "Clock",
+              "NewsStory",
+              "NewsMedia",
+              "NewsBulletin",
+              "Social",
+              "ShowInformation",
+              "HourStart"
+            ]
+          },
+          {
+            "name": "mediaId",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "itemTitle",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "firstArtist",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/OnAir/SetNowPlaying": {
+      "put": {
+        "tags": [
+          "OnAir"
+        ],
+        "summary": "Sets the Now Playing information for the specified station",
+        "operationId": "OnAir_SetNowPlaying",
+        "consumes": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml",
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the current station",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "items",
+            "in": "body",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/SimpleNowPlayingItem"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/OnAir/GetShowInformation": {
+      "get": {
+        "tags": [
+          "OnAir"
+        ],
+        "summary": "Gets the current show and presenter information",
+        "operationId": "OnAir_GetShowInformation",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the current station",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ObjectResult[ShowInformation]"
+            }
+          }
+        }
+      }
+    },
+    "/api/OnAir/SetShowInformation": {
+      "put": {
+        "tags": [
+          "OnAir"
+        ],
+        "summary": "Sets the current show and presenter information",
+        "operationId": "OnAir_SetShowInformation",
+        "consumes": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml",
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the current station",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "newInfo",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ShowInformation"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Players/GetPlayerStatus": {
+      "get": {
+        "tags": [
+          "Players"
+        ],
+        "summary": "Reads the state of the specified media player",
+        "operationId": "Players_GetPlayerStatus",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the current station",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "playerReference",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ObjectResult[MediaPlayerSummaryState]"
+            }
+          }
+        }
+      }
+    },
+    "/api/Players/GetAllPlayersStatus": {
+      "get": {
+        "tags": [
+          "Players"
+        ],
+        "summary": "Reads the state of all media players in the specified station",
+        "operationId": "Players_GetAllPlayersStatus",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the current station",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ObjectResult[List[MediaPlayerSummaryState]]"
+            }
+          }
+        }
+      }
+    },
+    "/api/Players/ReloadMediaEngineSettings": {
+      "post": {
+        "tags": [
+          "Players"
+        ],
+        "summary": "Reloads the Media Engine Settings for the specified station. Currently only supported when using the StreamEngine",
+        "operationId": "Players_ReloadMediaEngineSettings",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the current station",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "settingsToReload",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Players/ConnectToLiveEngine": {
+      "post": {
+        "tags": [
+          "Players"
+        ],
+        "summary": "Forwards the ConnectToLiveEngine message onto the StreamEngine",
+        "operationId": "Players_ConnectToLiveEngine",
+        "consumes": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml",
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the current station",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "request",
+            "in": "body",
+            "description": "",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ConnectToLiveEngineRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/VoidResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Players/PlayMediaItem": {
+      "post": {
+        "tags": [
+          "Players"
+        ],
+        "summary": "Immediately cue and play the specified item in the first available player in a range, or in the specified player",
+        "operationId": "Players_PlayMediaItem",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the current station",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "mediaId",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "playMode",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "FullItem",
+              "Extro",
+              "Hook"
+            ]
+          },
+          {
+            "name": "forcePlayerIndex",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "playerItemTypeOrder",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "MediaWallItem",
+              "FavouriteItem",
+              "PreviewItem",
+              "Empty",
+              "LogBasicMediaItem",
+              "Link",
+              "Advert",
+              "Song",
+              "VoiceLink",
+              "AutoHook",
+              "NewsAudio"
+            ]
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/IntegerResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Players/CueMediaItem": {
+      "post": {
+        "tags": [
+          "Players"
+        ],
+        "summary": "Immediately cue the specified item in the first available player in a range, or in the specified player",
+        "operationId": "Players_CueMediaItem",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the current station",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "mediaId",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "playMode",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "FullItem",
+              "Extro",
+              "Hook"
+            ]
+          },
+          {
+            "name": "forcePlayerIndex",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "playerItemTypeOrder",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "MediaWallItem",
+              "FavouriteItem",
+              "PreviewItem",
+              "Empty",
+              "LogBasicMediaItem",
+              "Link",
+              "Advert",
+              "Song",
+              "VoiceLink",
+              "AutoHook",
+              "NewsAudio"
+            ]
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/IntegerResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Players/PlayPlayer": {
+      "post": {
+        "tags": [
+          "Players"
+        ],
+        "summary": "Plays (or resumes) the specified player",
+        "operationId": "Players_PlayPlayer",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the current station",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "playerReference",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Players/PausePlayer": {
+      "post": {
+        "tags": [
+          "Players"
+        ],
+        "summary": "Pauses the specified player",
+        "operationId": "Players_PausePlayer",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the current station",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "playerReference",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Players/ReCuePlayer": {
+      "post": {
+        "tags": [
+          "Players"
+        ],
+        "summary": "Recues the specified player",
+        "operationId": "Players_ReCuePlayer",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the current station",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "playerReference",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Players/SeekActualPositionPlayer": {
+      "post": {
+        "tags": [
+          "Players"
+        ],
+        "summary": "Seeks the specified player to the specified position in seconds",
+        "operationId": "Players_SeekActualPositionPlayer",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the current station",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "playerReference",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "numberOfSeconds",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "number",
+            "format": "double"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Players/SeekActualPercentPlayer": {
+      "post": {
+        "tags": [
+          "Players"
+        ],
+        "summary": "Seeks the specified player to the specified position in percent based on the full item (ignores MediaStart and MediaEnd)",
+        "operationId": "Players_SeekActualPercentPlayer",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the current station",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "playerReference",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "seekPercentage",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "number",
+            "format": "double"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Players/SeekPositionPlayer": {
+      "post": {
+        "tags": [
+          "Players"
+        ],
+        "summary": "Seeks the specified player to the specified position in seconds past the MediaStart.",
+        "operationId": "Players_SeekPositionPlayer",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the current station",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "playerReference",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "numberOfSeconds",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "number",
+            "format": "double"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Players/SeekPercentPlayer": {
+      "post": {
+        "tags": [
+          "Players"
+        ],
+        "summary": "Seeks the specified player to the specified position in percent from MediaStart to MediaEnd",
+        "operationId": "Players_SeekPercentPlayer",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the current station",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "playerReference",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "seekPercentage",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "number",
+            "format": "double"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Players/ClosePlayer": {
+      "post": {
+        "tags": [
+          "Players"
+        ],
+        "summary": "Closes the media item in the specified player",
+        "operationId": "Players_ClosePlayer",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the current station",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "playerReference",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Qae/Go": {
+      "post": {
+        "tags": [
+          "Qae"
+        ],
+        "summary": "Starts the next Log Item playing",
+        "operationId": "Qae_Go",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the 'current' station",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Qae/DumpItem": {
+      "delete": {
+        "tags": [
+          "Qae"
+        ],
+        "summary": "Dumps the specified QAE Item.",
+        "operationId": "Qae_DumpItem",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the 'current' station",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "itemIndex",
+            "in": "query",
+            "description": "Zero based index - 0 is the currently playing item",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "dumpType",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "string",
+            "enum": [
+              "HardClose",
+              "SoftFade"
+            ]
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Qae/ToggleItemChainType": {
+      "post": {
+        "tags": [
+          "Qae"
+        ],
+        "summary": "Toggles the ending of the specified QAE Item.",
+        "operationId": "Qae_ToggleItemChainType",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the 'current' station",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "itemIndex",
+            "in": "query",
+            "description": "Zero based index - 0 is the currently playing item",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Qae/SetItemChainType": {
+      "post": {
+        "tags": [
+          "Qae"
+        ],
+        "summary": "Sets the ending of the specified QAE Item",
+        "operationId": "Qae_SetItemChainType",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the 'current' station",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "itemIndex",
+            "in": "query",
+            "description": "Zero based index - 0 is the currently playing item",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "chainType",
+            "in": "query",
+            "description": "The new chain type to set the item to.",
+            "required": true,
+            "type": "string",
+            "enum": [
+              "Stop",
+              "Auto",
+              "Sweep"
+            ]
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Qae/ChangeMode": {
+      "post": {
+        "tags": [
+          "Qae"
+        ],
+        "summary": "Changes the running Log playback Mode",
+        "operationId": "Qae_ChangeMode",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the 'current' station",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "newMode",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "string",
+            "enum": [
+              "Standby",
+              "LiveAssist",
+              "Automation",
+              "AutoFade",
+              "QueryLog"
+            ]
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Qae/GetMode": {
+      "get": {
+        "tags": [
+          "Qae"
+        ],
+        "summary": "Gets the current Log Playback Mode",
+        "operationId": "Qae_GetMode",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the 'current' station",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/EnumResult[QaeModeEnum]"
+            }
+          }
+        }
+      }
+    },
+    "/api/Qae/GetCurrentItem": {
+      "get": {
+        "tags": [
+          "Qae"
+        ],
+        "summary": "Gets the full information of the currently playing item from the Scheduled Log",
+        "operationId": "Qae_GetCurrentItem",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the 'current' station",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ObjectResult[QaeBaseItem]"
+            }
+          }
+        }
+      }
+    },
+    "/api/Qae/GetCurrentItems": {
+      "get": {
+        "tags": [
+          "Qae"
+        ],
+        "summary": "Gets the full information from all items currently loaded into the Log Playback QAE engine",
+        "operationId": "Qae_GetCurrentItems",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the 'current' station",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ObjectResult[QaeItems]"
+            }
+          }
+        }
+      }
+    },
+    "/api/Qae/RequestTransfer": {
+      "post": {
+        "tags": [
+          "Qae"
+        ],
+        "summary": "Requests Log Playback to be transferred to the specified Destination.",
+        "operationId": "Qae_RequestTransfer",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the 'current' station",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "destinationLocationId",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Qae/GetTransferStatus": {
+      "get": {
+        "tags": [
+          "Qae"
+        ],
+        "summary": "Gets the status of the requested Log Playback transfer",
+        "operationId": "Qae_GetTransferStatus",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the 'current' station",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/EnumResult[TransferStatusEnum]"
+            }
+          }
+        }
+      }
+    },
+    "/api/Qae/CancelTransfer": {
+      "post": {
+        "tags": [
+          "Qae"
+        ],
+        "summary": "Cancels the requested Log Playback transfer",
+        "operationId": "Qae_CancelTransfer",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "parameters": [
+          {
+            "name": "stationId",
+            "in": "query",
+            "description": "Specify -1 for the 'current' station",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BooleanResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Stations/GetOpenStationsNames": {
+      "get": {
+        "tags": [
+          "Stations"
+        ],
+        "summary": "Gets the names of all open stations",
+        "operationId": "Stations_GetOpenStationsNames",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ObjectResult[List[String]]"
+            }
+          }
+        }
+      }
+    },
+    "/api/Stations/GetOpenStationsIDs": {
+      "get": {
+        "tags": [
+          "Stations"
+        ],
+        "summary": "Gets the numeric StationIds of all open stations",
+        "operationId": "Stations_GetOpenStationsIDs",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ObjectResult[List[Int32]]"
+            }
+          }
+        }
+      }
+    },
+    "/api/Stations/GetOpenStationsInformations": {
+      "get": {
+        "tags": [
+          "Stations"
+        ],
+        "summary": "Gets the full Station Information for all open stations",
+        "operationId": "Stations_GetOpenStationsInformations",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ObjectResult[List[StationInfo]]"
+            }
+          }
+        }
+      }
+    },
+    "/api/System/GetLocalTime": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Returns the current system time in the local timezone",
+        "operationId": "System_GetLocalTime",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ObjectResult[DateTime]"
+            }
+          }
+        }
+      }
+    },
+    "/api/System/GetUtcTime": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Returns the current system time in UTC",
+        "operationId": "System_GetUtcTime",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ObjectResult[DateTime]"
+            }
+          }
+        }
+      }
+    },
+    "/api/System/GetComputerName": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Returns the current system name",
+        "operationId": "System_GetComputerName",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/StringResult"
+            }
+          }
+        }
+      }
+    },
+    "/api/Users/GetCurrentUser": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Gets the full details for the currently logged in user",
+        "operationId": "Users_GetCurrentUser",
+        "consumes": [],
+        "produces": [
+          "application/json",
+          "text/json",
+          "application/xml",
+          "text/xml"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ObjectResult[MyriadUser]"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "ApplicationStatus": {
+      "type": "object",
+      "properties": {
+        "Exception": {
+          "type": "object"
+        },
+        "MediaEngineType": {
+          "enum": [
+            "Local",
+            "RemoteEngine"
+          ],
+          "type": "string"
+        },
+        "RemoteMediaEngineConnectionState": {
+          "enum": [
+            "Closed",
+            "Connecting",
+            "Retrying",
+            "Connected",
+            "Faulted"
+          ],
+          "type": "string"
+        },
+        "Stations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/StationStatus"
+          }
+        },
+        "SupportExpiryStatus": {
+          "type": "string"
+        },
+        "LocalTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "UtcTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "Result": {
+          "$ref": "#/definitions/ApplicationStatusBase"
+        },
+        "ExceptionMessage": {
+          "type": "string"
+        },
+        "FailMessage": {
+          "type": "string"
+        },
+        "ExceptionTypeName": {
+          "type": "string"
+        }
+      }
+    },
+    "StationStatus": {
+      "type": "object",
+      "properties": {
+        "StationName": {
+          "type": "string"
+        },
+        "StationId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "OnAirStatus": {
+          "enum": [
+            "None",
+            "ControlRequested",
+            "IsController"
+          ],
+          "type": "string"
+        },
+        "QaeCurrentMode": {
+          "enum": [
+            "Standby",
+            "LiveAssist",
+            "Automation",
+            "AutoFade",
+            "QueryLog"
+          ],
+          "type": "string"
+        },
+        "QaeCurrentItemInformation": {
+          "type": "string"
+        },
+        "QaeCurrentItemStartTimeUtc": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "QaeHasDatabaseConnectionIssue": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ApplicationStatusBase": {
+      "type": "object",
+      "properties": {
+        "Exception": {
+          "type": "object"
+        },
+        "LocalTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "UtcTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "Result": {
+          "$ref": "#/definitions/ApplicationStatusBase"
+        },
+        "ExceptionMessage": {
+          "type": "string"
+        },
+        "FailMessage": {
+          "type": "string"
+        },
+        "ExceptionTypeName": {
+          "type": "string"
+        }
+      }
+    },
+    "ObjectResult[ApplicationVersion]": {
+      "type": "object",
+      "properties": {
+        "Exception": {
+          "type": "object"
+        },
+        "Result": {
+          "$ref": "#/definitions/ApplicationVersion"
+        },
+        "ExceptionMessage": {
+          "type": "string"
+        },
+        "FailMessage": {
+          "type": "string"
+        },
+        "ExceptionTypeName": {
+          "type": "string"
+        }
+      }
+    },
+    "ApplicationVersion": {
+      "type": "object",
+      "properties": {
+        "AssemblyVersion": {
+          "$ref": "#/definitions/Version"
+        },
+        "FileVersion": {
+          "type": "string"
+        },
+        "InformationVersion": {
+          "type": "string"
+        }
+      }
+    },
+    "Version": {
+      "type": "object",
+      "properties": {
+        "_Major": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "_Minor": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "_Build": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "_Revision": {
+          "format": "int32",
+          "type": "integer"
+        }
+      }
+    },
+    "StringResult": {
+      "type": "object",
+      "properties": {
+        "Exception": {
+          "type": "object"
+        },
+        "Result": {
+          "type": "string"
+        },
+        "ExceptionMessage": {
+          "type": "string"
+        },
+        "FailMessage": {
+          "type": "string"
+        },
+        "ExceptionTypeName": {
+          "type": "string"
+        }
+      }
+    },
+    "ObjectResult[PerformResult]": {
+      "type": "object",
+      "properties": {
+        "Exception": {
+          "type": "object"
+        },
+        "Result": {
+          "$ref": "#/definitions/PerformResult"
+        },
+        "ExceptionMessage": {
+          "type": "string"
+        },
+        "FailMessage": {
+          "type": "string"
+        },
+        "ExceptionTypeName": {
+          "type": "string"
+        }
+      }
+    },
+    "PerformResult": {
+      "type": "object",
+      "properties": {
+        "Result": {
+          "enum": [
+            "Failed",
+            "CommandEmpty",
+            "NotSupported",
+            "MissingVerb",
+            "InvalidVerb",
+            "MissingParameters",
+            "InvalidParameter",
+            "InvalidIf",
+            "Exit",
+            "UnknownCommand",
+            "Success"
+          ],
+          "type": "string"
+        },
+        "ResultMessage": {
+          "type": "string"
+        },
+        "ReturnValue": {
+          "type": "object"
+        },
+        "CommandText": {
+          "type": "string"
+        },
+        "IsSuccess": {
+          "type": "boolean",
+          "readOnly": true
+        }
+      }
+    },
+    "ObjectResult[DatabaseDescription]": {
+      "type": "object",
+      "properties": {
+        "Exception": {
+          "type": "object"
+        },
+        "Result": {
+          "$ref": "#/definitions/DatabaseDescription"
+        },
+        "ExceptionMessage": {
+          "type": "string"
+        },
+        "FailMessage": {
+          "type": "string"
+        },
+        "ExceptionTypeName": {
+          "type": "string"
+        }
+      }
+    },
+    "DatabaseDescription": {
+      "type": "object",
+      "properties": {
+        "DatabaseType": {
+          "enum": [
+            "Any",
+            "Directory",
+            "AutoTrackv3",
+            "StationDB4",
+            "MyriadDB5",
+            "Adverts",
+            "Advertsv3",
+            "MV26QNXT",
+            "Scoopv3",
+            "Scoopv4",
+            "Nexusv1",
+            "MyriadData4",
+            "MyriadLogging5",
+            "MyriadNews6"
+          ],
+          "type": "string"
+        },
+        "DatabaseSubType": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "DBConnect": {
+          "type": "string"
+        },
+        "DBName": {
+          "type": "string"
+        },
+        "Description": {
+          "type": "string"
+        },
+        "Version": {
+          "format": "float",
+          "type": "number"
+        },
+        "LastAccessedDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "LastAccessedDateTimeLocal": {
+          "format": "date-time",
+          "type": "string",
+          "readOnly": true
+        },
+        "LastAccessedSoftware": {
+          "type": "string"
+        }
+      }
+    },
+    "ObjectResult[FavouritesSet]": {
+      "type": "object",
+      "properties": {
+        "Exception": {
+          "type": "object"
+        },
+        "Result": {
+          "$ref": "#/definitions/FavouritesSet"
+        },
+        "ExceptionMessage": {
+          "type": "string"
+        },
+        "FailMessage": {
+          "type": "string"
+        },
+        "ExceptionTypeName": {
+          "type": "string"
+        }
+      }
+    },
+    "FavouritesSet": {
+      "type": "object",
+      "properties": {
+        "FavouritesList": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FavouriteItemViewModel"
+          }
+        },
+        "Title": {
+          "type": "string"
+        },
+        "TitleAsFilename": {
+          "type": "string",
+          "readOnly": true
+        },
+        "Summary": {
+          "type": "string",
+          "readOnly": true
+        },
+        "SetType": {
+          "enum": [
+            "Unknown",
+            "Personal",
+            "Shared",
+            "Network"
+          ],
+          "type": "string"
+        },
+        "ItemReference": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "Filename": {
+          "type": "string"
+        },
+        "StationId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "IsWatchingFile": {
+          "type": "boolean"
+        }
+      }
+    },
+    "FavouriteItemViewModel": {
+      "type": "object",
+      "properties": {
+        "ProgressVisible": {
+          "type": "boolean"
+        },
+        "CurrentSection": {
+          "enum": [
+            "Empty",
+            "PreIntro",
+            "DuringIntro",
+            "MainSection",
+            "PreExtroFirstStage",
+            "PreExtroSecondStage",
+            "PostExtro"
+          ],
+          "type": "string"
+        },
+        "SectionProgressPercent": {
+          "format": "double",
+          "type": "number"
+        },
+        "itemReference": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "MediaItem": {
+          "$ref": "#/definitions/MediaItem"
+        },
+        "ItemTitle": {
+          "type": "string"
+        },
+        "AlbumTitle": {
+          "type": "string"
+        },
+        "CategoryAttribute": {
+          "$ref": "#/definitions/StationAttribute"
+        },
+        "SecondCategoryAttribute": {
+          "$ref": "#/definitions/StationAttribute"
+        },
+        "TypeAttribute": {
+          "$ref": "#/definitions/StationAttribute"
+        },
+        "GenderAttribute": {
+          "$ref": "#/definitions/StationAttribute"
+        },
+        "EraAttribute": {
+          "$ref": "#/definitions/StationAttribute"
+        },
+        "EnergyAttribute": {
+          "$ref": "#/definitions/StationAttribute"
+        },
+        "TempoAttribute": {
+          "$ref": "#/definitions/StationAttribute"
+        },
+        "TextureAttribute": {
+          "$ref": "#/definitions/StationAttribute"
+        },
+        "MoodAttribute": {
+          "$ref": "#/definitions/StationAttribute"
+        },
+        "BurnoutAttribute": {
+          "$ref": "#/definitions/StationAttribute"
+        },
+        "mrps": {
+          "type": "string",
+          "readOnly": true
+        },
+        "mrpss": {
+          "type": "string",
+          "readOnly": true
+        },
+        "rpwt": {
+          "type": "string"
+        },
+        "hrpw": {
+          "type": "boolean",
+          "readOnly": true
+        },
+        "ItemTypeInfo": {
+          "$ref": "#/definitions/MyriadItemTypeDetailsClass"
+        },
+        "UseCategoryColors": {
+          "type": "boolean"
+        },
+        "UseItemTypeColors": {
+          "type": "boolean"
+        },
+        "IsSelected": {
+          "type": "boolean"
+        },
+        "HasOrphanedMedia": {
+          "type": "boolean"
+        },
+        "IsProgressVisible": {
+          "type": "boolean"
+        },
+        "ProgressPercent": {
+          "format": "double",
+          "type": "number"
+        },
+        "favouriteIndex": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "SetType": {
+          "enum": [
+            "Unknown",
+            "Personal",
+            "Shared",
+            "Network"
+          ],
+          "type": "string"
+        }
+      }
+    },
+    "MediaItem": {
+      "type": "object",
+      "properties": {
+        "MediaId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "CutId": {
+          "type": "string"
+        },
+        "Guid": {
+          "format": "uuid",
+          "type": "string",
+          "example": "00000000-0000-0000-0000-000000000000"
+        },
+        "ExternalReference": {
+          "type": "string"
+        },
+        "OriginalMediaLocation": {
+          "type": "string"
+        },
+        "MusicBrainzId": {
+          "type": "string"
+        },
+        "Levels": {
+          "$ref": "#/definitions/MediaItemLevels"
+        },
+        "Type": {
+          "enum": [
+            "BasicMediaItem",
+            "Link",
+            "Advert",
+            "Song",
+            "VoiceLink",
+            "NewsMedia"
+          ],
+          "type": "string"
+        },
+        "Attributes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ItemAttribute"
+          }
+        },
+        "IngestCategoryName": {
+          "type": "string"
+        },
+        "Scheduling": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MediaItemScheduling"
+          }
+        },
+        "IsSweeper": {
+          "type": "boolean"
+        },
+        "Ending": {
+          "enum": [
+            "NonSpecific",
+            "Ends",
+            "Fades",
+            "Sustain",
+            "SlowFade"
+          ],
+          "type": "string"
+        },
+        "OutCue": {
+          "type": "string"
+        },
+        "StartDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "EndDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "DeleteDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "CreatedDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "LastModDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "RecentPlayDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "TitleId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "Title": {
+          "type": "string"
+        },
+        "AlbumId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "AlbumTitle": {
+          "type": "string"
+        },
+        "Artists": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ArtistInfo"
+          }
+        },
+        "ForceItemSubTitle": {
+          "type": "string"
+        },
+        "ItemDescription": {
+          "type": "string"
+        },
+        "DisplayAs": {
+          "type": "string"
+        },
+        "DisplayBy": {
+          "type": "string"
+        },
+        "TotalLength": {
+          "type": "string"
+        },
+        "Status": {
+          "enum": [
+            "Normal",
+            "ReservedForImport",
+            "ReservedForRecording",
+            "Deleted"
+          ],
+          "type": "string"
+        },
+        "ItemStatusReference": {
+          "type": "string"
+        },
+        "HasNotes": {
+          "type": "boolean"
+        },
+        "Notes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MediaNote"
+          }
+        },
+        "AudioFormat": {
+          "$ref": "#/definitions/AudioFormat"
+        },
+        "TextColor": {
+          "type": "string"
+        },
+        "BackColor": {
+          "type": "string"
+        },
+        "CommandText": {
+          "type": "string"
+        },
+        "Copyright": {
+          "$ref": "#/definitions/MediaCopyright"
+        },
+        "ImageLocations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MediaImage"
+          }
+        },
+        "FirstReleaseYear": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "InformationLevel": {
+          "enum": [
+            "None",
+            "HasNotes",
+            "FullNotes",
+            "FirstImage",
+            "AllImages",
+            "Copyright",
+            "CustomFields",
+            "FullAttributes",
+            "FirstReleaseYear",
+            "Album",
+            "AllDates",
+            "ItemScheduling",
+            "PerStationAllAttributes",
+            "FirstCategory",
+            "ExtraFields",
+            "MediaFormat",
+            "Full"
+          ],
+          "type": "string"
+        },
+        "FromDb": {
+          "type": "boolean"
+        },
+        "IsEdited": {
+          "type": "boolean"
+        },
+        "Markers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MediaItemMark"
+          }
+        },
+        "ContentType": {
+          "enum": [
+            "AudioFile",
+            "VideoFile",
+            "AudioStream",
+            "VideoStream",
+            "AudioLineIn",
+            "MediaListAll",
+            "MediaListRotate",
+            "MediaListRandom",
+            "SplitGroup",
+            "NetworkSplitGroup",
+            "Command"
+          ],
+          "type": "string"
+        },
+        "ContentExists": {
+          "enum": [
+            "Unknown",
+            "No",
+            "Yes"
+          ],
+          "type": "string"
+        },
+        "LocalContentExists": {
+          "enum": [
+            "Unknown",
+            "No",
+            "Yes"
+          ],
+          "type": "string"
+        },
+        "MediaLocation": {
+          "type": "string"
+        },
+        "LocalMediaLocation": {
+          "type": "string"
+        },
+        "MediaLength": {
+          "$ref": "#/definitions/MediaTiming"
+        },
+        "Extro": {
+          "$ref": "#/definitions/MediaTiming"
+        },
+        "ExtroOffset": {
+          "type": "string"
+        },
+        "Intro": {
+          "$ref": "#/definitions/MediaTiming"
+        },
+        "CustomFields": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "Hook": {
+          "$ref": "#/definitions/MediaTiming"
+        },
+        "ReferenceLength": {
+          "type": "string"
+        },
+        "TimeStretchOption": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "RelatedMediaItems": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MediaItem"
+          }
+        },
+        "NowPlayingItems": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MediaNowPlayingItem"
+          }
+        },
+        "Loops": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MediaLoopTiming"
+          }
+        },
+        "SelectedRelatedMediaItemIndex": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "BIMId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "BIMP": {
+          "enum": [
+            "Before",
+            "None",
+            "After"
+          ],
+          "type": "string"
+        }
+      }
+    },
+    "StationAttribute": {
+      "type": "object",
+      "properties": {
+        "AttributeNumber": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "Description": {
+          "type": "string"
+        },
+        "BackColor": {
+          "type": "string"
+        },
+        "StationId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "ItemType": {
+          "enum": [
+            "BasicMediaItem",
+            "Link",
+            "Advert",
+            "Song",
+            "VoiceLink",
+            "NewsMedia"
+          ],
+          "type": "string"
+        },
+        "AttributeType": {
+          "enum": [
+            "Category",
+            "Type",
+            "Gender",
+            "Era",
+            "Energy",
+            "Tempo",
+            "Texture",
+            "Mood",
+            "Burnout",
+            "Tag"
+          ],
+          "type": "string"
+        },
+        "Aliases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "MyriadItemTypeDetailsClass": {
+      "type": "object",
+      "properties": {
+        "CustomLightColors": {
+          "type": "boolean"
+        },
+        "EffectiveBackColor": {
+          "type": "string",
+          "readOnly": true
+        },
+        "EffectiveTextColor": {
+          "type": "string",
+          "readOnly": true
+        },
+        "ItemType": {
+          "enum": [
+            "Empty",
+            "AbsoluteTime",
+            "BasicMediaItem",
+            "Link",
+            "Advert",
+            "Hardware",
+            "StationRules",
+            "Song",
+            "Script",
+            "VoiceLink",
+            "Command",
+            "SplitGroup",
+            "SplitAdvert",
+            "AutoHook",
+            "GapTime",
+            "SoftTime",
+            "ResetTime",
+            "Clock",
+            "NewsStory",
+            "NewsMedia",
+            "NewsBulletin",
+            "Social",
+            "ShowInformation",
+            "HourStart"
+          ],
+          "type": "string"
+        },
+        "ItemTypeDescription": {
+          "type": "string",
+          "readOnly": true
+        },
+        "CanSendToOcp": {
+          "type": "boolean"
+        },
+        "OcpSendIfCurrent": {
+          "type": "boolean"
+        },
+        "OcpSendIfCurrentDefault": {
+          "type": "boolean",
+          "readOnly": true
+        },
+        "OcpSendIfNext": {
+          "type": "boolean"
+        },
+        "OcpSendIfNextDefault": {
+          "type": "boolean",
+          "readOnly": true
+        },
+        "IsAutoTrimCapable": {
+          "type": "boolean"
+        },
+        "AutoTrimmable": {
+          "type": "boolean"
+        },
+        "_CustomLightColors": {
+          "type": "boolean"
+        },
+        "DefaultBackColorLight": {
+          "type": "string"
+        },
+        "DefaultBackColorDark": {
+          "type": "string"
+        },
+        "BackColorLight": {
+          "type": "string"
+        },
+        "BackColorDark": {
+          "type": "string"
+        },
+        "DefaultTextColorLight": {
+          "type": "string"
+        },
+        "DefaultTextColorDark": {
+          "type": "string"
+        },
+        "TextColorLight": {
+          "type": "string"
+        },
+        "TextColorDark": {
+          "type": "string"
+        }
+      }
+    },
+    "MediaItemLevels": {
+      "type": "object",
+      "properties": {
+        "CG": {
+          "format": "double",
+          "type": "number"
+        },
+        "LS": {
+          "$ref": "#/definitions/LevelsSummary"
+        }
+      }
+    },
+    "ItemAttribute": {
+      "type": "object",
+      "properties": {
+        "StationId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "Type": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "Index": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "Number": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "Level": {
+          "format": "int32",
+          "type": "integer"
+        }
+      }
+    },
+    "MediaItemScheduling": {
+      "type": "object",
+      "properties": {
+        "SchedulingInhibited": {
+          "type": "boolean"
+        },
+        "StationId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "DayHourRestrictions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DayHourRestriction"
+          }
+        }
+      }
+    },
+    "ArtistInfo": {
+      "type": "object",
+      "properties": {
+        "ArtistId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "ArtistName": {
+          "type": "string"
+        },
+        "Verified": {
+          "format": "int32",
+          "type": "integer"
+        }
+      }
+    },
+    "MediaNote": {
+      "type": "object",
+      "properties": {
+        "HasDateRange": {
+          "type": "boolean"
+        },
+        "StartDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "EndDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "HasTimeRange": {
+          "type": "boolean"
+        },
+        "StartTime": {
+          "type": "string"
+        },
+        "EndTime": {
+          "type": "string"
+        },
+        "Reference": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "Notes": {
+          "type": "string"
+        },
+        "Type": {
+          "enum": [
+            "Presenter",
+            "AIVoiceLink",
+            "DigitalRadio",
+            "RDS",
+            "Web",
+            "SocialMediaShort",
+            "SocialMediaLong",
+            "Technical"
+          ],
+          "type": "string"
+        }
+      }
+    },
+    "AudioFormat": {
+      "type": "object",
+      "properties": {
+        "Edited": {
+          "type": "boolean"
+        },
+        "InhibitEvents": {
+          "type": "boolean"
+        },
+        "FormatType": {
+          "enum": [
+            "None",
+            "Wav",
+            "Mp3",
+            "Ogg",
+            "Mp2",
+            "Opus",
+            "Flac",
+            "Snd",
+            "MfCompatible",
+            "All"
+          ],
+          "type": "string"
+        },
+        "SampleRate": {
+          "enum": [
+            "FQ_8_KHZ",
+            "FQ_11_KHZ",
+            "FQ_22_KHZ",
+            "FQ_44_KHZ",
+            "FQ_48_KHZ"
+          ],
+          "type": "string"
+        },
+        "BytesPerSecond": {
+          "format": "int32",
+          "type": "integer",
+          "readOnly": true
+        },
+        "Channels": {
+          "enum": [
+            "Mono",
+            "Stereo"
+          ],
+          "type": "string"
+        },
+        "BitRate": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "HasBitRate": {
+          "type": "boolean",
+          "readOnly": true
+        },
+        "BitsPerSample": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "WavFormatTag": {
+          "enum": [
+            "PCM",
+            "IMA_ADPCM"
+          ],
+          "type": "string"
+        },
+        "UserData": {
+          "type": "object"
+        },
+        "Description": {
+          "type": "string",
+          "readOnly": true
+        },
+        "LegacySerialisation": {
+          "type": "string"
+        }
+      }
+    },
+    "MediaCopyright": {
+      "type": "object",
+      "properties": {
+        "CopyrightTitle": {
+          "type": "string"
+        },
+        "Performer": {
+          "type": "string"
+        },
+        "RecordingNumber": {
+          "type": "string"
+        },
+        "RecordLabel": {
+          "type": "string"
+        },
+        "Composer": {
+          "type": "string"
+        },
+        "Lyricist": {
+          "type": "string"
+        },
+        "Publisher": {
+          "type": "string"
+        },
+        "Promoter": {
+          "type": "string"
+        },
+        "Address": {
+          "type": "string"
+        },
+        "ISRC": {
+          "type": "string"
+        },
+        "PRS": {
+          "type": "string"
+        },
+        "License": {
+          "type": "string"
+        },
+        "Custom1": {
+          "type": "string"
+        },
+        "Custom2": {
+          "type": "string"
+        },
+        "Custom3": {
+          "type": "string"
+        },
+        "Custom4": {
+          "type": "string"
+        },
+        "StartOffset": {
+          "type": "string"
+        },
+        "TotalDuration": {
+          "type": "string"
+        },
+        "MusicDuration": {
+          "type": "string"
+        }
+      }
+    },
+    "MediaImage": {
+      "type": "object",
+      "properties": {
+        "Location": {
+          "type": "string"
+        },
+        "SmallThumbnailLocation": {
+          "type": "string"
+        },
+        "MediumThumbnailLocation": {
+          "type": "string"
+        }
+      }
+    },
+    "MediaItemMark": {
+      "type": "object",
+      "properties": {
+        "Title": {
+          "type": "string"
+        },
+        "StartTime": {
+          "type": "string"
+        },
+        "Length": {
+          "type": "string"
+        },
+        "Type": {
+          "enum": [
+            "MediaStart",
+            "Intro",
+            "Hook",
+            "LoopInfo",
+            "NowPlayingItem",
+            "Extro",
+            "MediaEnd"
+          ],
+          "type": "string"
+        },
+        "Index": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "Flags": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "Color": {
+          "type": "string"
+        }
+      }
+    },
+    "MediaTiming": {
+      "type": "object",
+      "properties": {
+        "End": {
+          "type": "string"
+        },
+        "Start": {
+          "type": "string"
+        },
+        "Middle": {
+          "type": "string"
+        },
+        "StartMediaId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "MiddleMediaId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "EndMediaId": {
+          "format": "int32",
+          "type": "integer"
+        }
+      }
+    },
+    "MediaNowPlayingItem": {
+      "type": "object",
+      "properties": {
+        "TrackNumber": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "ItemType": {
+          "enum": [
+            "BasicMediaItem",
+            "Link",
+            "Advert",
+            "Song",
+            "VoiceLink",
+            "NewsMedia"
+          ],
+          "type": "string"
+        },
+        "ItemTitle": {
+          "type": "string"
+        },
+        "Artists": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ArtistNames": {
+          "type": "string",
+          "readOnly": true
+        },
+        "Start": {
+          "type": "string"
+        },
+        "HasLength": {
+          "type": "boolean",
+          "readOnly": true
+        },
+        "End": {
+          "type": "string"
+        },
+        "CategoryName": {
+          "type": "string"
+        }
+      }
+    },
+    "MediaLoopTiming": {
+      "type": "object",
+      "properties": {
+        "Mode": {
+          "enum": [
+            "Optional",
+            "InQuickPlayer",
+            "Always"
+          ],
+          "type": "string"
+        },
+        "IsEnabledInPlayback": {
+          "type": "boolean"
+        },
+        "Caption": {
+          "type": "string"
+        },
+        "JumpToEnd": {
+          "type": "boolean"
+        },
+        "MaxLoops": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "End": {
+          "type": "string"
+        },
+        "Start": {
+          "type": "string"
+        },
+        "Middle": {
+          "type": "string"
+        },
+        "StartMediaId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "MiddleMediaId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "EndMediaId": {
+          "format": "int32",
+          "type": "integer"
+        }
+      }
+    },
+    "LevelsSummary": {
+      "type": "object",
+      "properties": {
+        "LM": {
+          "format": "float",
+          "type": "number"
+        },
+        "RM": {
+          "format": "float",
+          "type": "number"
+        },
+        "LRC": {
+          "format": "float",
+          "type": "number"
+        },
+        "RRC": {
+          "format": "float",
+          "type": "number"
+        }
+      }
+    },
+    "DayHourRestriction": {
+      "type": "object",
+      "properties": {
+        "DayOfWeek": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "HourRestrictions": {
+          "format": "int32",
+          "type": "integer"
+        }
+      }
+    },
+    "ObjectResult[FavouritesSetList]": {
+      "type": "object",
+      "properties": {
+        "Exception": {
+          "type": "object"
+        },
+        "Result": {
+          "$ref": "#/definitions/FavouritesSetList"
+        },
+        "ExceptionMessage": {
+          "type": "string"
+        },
+        "FailMessage": {
+          "type": "string"
+        },
+        "ExceptionTypeName": {
+          "type": "string"
+        }
+      }
+    },
+    "FavouritesSetList": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FavouritesSetListItem"
+          }
+        },
+        "setType": {
+          "enum": [
+            "Unknown",
+            "Personal",
+            "Shared",
+            "Network"
+          ],
+          "type": "string"
+        },
+        "isEditable": {
+          "type": "boolean"
+        }
+      }
+    },
+    "FavouritesSetListItem": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "setType": {
+          "enum": [
+            "Unknown",
+            "Personal",
+            "Shared",
+            "Network"
+          ],
+          "type": "string"
+        },
+        "isEditable": {
+          "type": "boolean"
+        },
+        "staticItems": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FavouriteItemViewModel"
+          }
+        },
+        "itemReference": {
+          "format": "int32",
+          "type": "integer"
+        }
+      }
+    },
+    "IntegerResult": {
+      "type": "object",
+      "properties": {
+        "Exception": {
+          "type": "object"
+        },
+        "Result": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "ExceptionMessage": {
+          "type": "string"
+        },
+        "FailMessage": {
+          "type": "string"
+        },
+        "ExceptionTypeName": {
+          "type": "string"
+        }
+      }
+    },
+    "EnumResult[HardwareLineStateEnum]": {
+      "type": "object",
+      "properties": {
+        "Exception": {
+          "type": "object"
+        },
+        "Result": {
+          "enum": [
+            "Invalid",
+            "Clear",
+            "Set",
+            "Flash",
+            "Pulse"
+          ],
+          "type": "string",
+          "readOnly": true
+        },
+        "ResultString": {
+          "type": "string",
+          "readOnly": true
+        },
+        "ExceptionMessage": {
+          "type": "string"
+        },
+        "FailMessage": {
+          "type": "string"
+        },
+        "ExceptionTypeName": {
+          "type": "string"
+        }
+      }
+    },
+    "BooleanResult": {
+      "type": "object",
+      "properties": {
+        "Exception": {
+          "type": "object"
+        },
+        "Result": {
+          "type": "boolean"
+        },
+        "ExceptionMessage": {
+          "type": "string"
+        },
+        "FailMessage": {
+          "type": "string"
+        },
+        "ExceptionTypeName": {
+          "type": "string"
+        }
+      }
+    },
+    "ObjectResult[LogItems]": {
+      "type": "object",
+      "properties": {
+        "Exception": {
+          "type": "object"
+        },
+        "Result": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/LogItem"
+          }
+        },
+        "ExceptionMessage": {
+          "type": "string"
+        },
+        "FailMessage": {
+          "type": "string"
+        },
+        "ExceptionTypeName": {
+          "type": "string"
+        }
+      }
+    },
+    "LogItem": {
+      "type": "object",
+      "properties": {
+        "ChainType": {
+          "enum": [
+            "Stop",
+            "Auto",
+            "Sweep"
+          ],
+          "type": "string"
+        },
+        "HourMode": {
+          "enum": [
+            "Standby",
+            "LiveAssist",
+            "Automation",
+            "AutoFade",
+            "QueryLog"
+          ],
+          "type": "string"
+        },
+        "Type": {
+          "enum": [
+            "Empty",
+            "AbsoluteTime",
+            "BasicMediaItem",
+            "Link",
+            "Advert",
+            "Hardware",
+            "StationRules",
+            "Song",
+            "Script",
+            "VoiceLink",
+            "Command",
+            "SplitGroup",
+            "SplitAdvert",
+            "AutoHook",
+            "GapTime",
+            "SoftTime",
+            "ResetTime",
+            "Clock",
+            "NewsStory",
+            "NewsMedia",
+            "NewsBulletin",
+            "Social",
+            "ShowInformation",
+            "HourStart"
+          ],
+          "type": "string"
+        },
+        "Sequence": {
+          "$ref": "#/definitions/LogItemSequence"
+        },
+        "PlayingState": {
+          "enum": [
+            "None",
+            "Cued",
+            "Playing"
+          ],
+          "type": "string"
+        },
+        "MediaItem": {
+          "$ref": "#/definitions/MediaItem"
+        },
+        "Status": {
+          "enum": [
+            "Empty",
+            "Bad",
+            "Good",
+            "SoftDeleted",
+            "Dropped",
+            "PendingMedia"
+          ],
+          "type": "string"
+        },
+        "SchedulerSettings": {
+          "$ref": "#/definitions/LogItemSchedulerSettings"
+        },
+        "ItemReference": {
+          "type": "string"
+        },
+        "ExtSchedulerReference": {
+          "type": "string"
+        },
+        "LegacyReference": {
+          "type": "string"
+        },
+        "RefDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "SaveNeeded": {
+          "type": "boolean"
+        },
+        "IsBeingCreated": {
+          "type": "boolean"
+        },
+        "IsEditableByRemoteUser": {
+          "type": "boolean"
+        },
+        "CreatedDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "LastModDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "LastEditLoc": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "LastMajorEditAction": {
+          "enum": [
+            "Other",
+            "Added",
+            "Moved",
+            "SoftDeleted",
+            "Restored",
+            "Replaced",
+            "SegEdited"
+          ],
+          "type": "string"
+        },
+        "ItemNumber": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "PlayingLocation": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "PlayedDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "PlayedLength": {
+          "type": "string"
+        },
+        "PlayedLocation": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "Flags": {
+          "enum": [
+            "NotDroppable",
+            "NotTrimmable",
+            "AutoFilled",
+            "Locked",
+            "HourScheduled",
+            "HourAdvertsMerged",
+            "HourSegEdited",
+            "HourInstantTrack",
+            "HourImported",
+            "HourEdited",
+            "LegacyHourRunToTime"
+          ],
+          "type": "string"
+        },
+        "FailureCode": {
+          "enum": [
+            "None",
+            "NoAvailablePlayer",
+            "AiScriptGenerationFailed",
+            "AiMediaGenerationFailed",
+            "CommandFailed"
+          ],
+          "type": "string"
+        },
+        "EstStartDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "ActualLength": {
+          "type": "string"
+        },
+        "ReferenceLength": {
+          "type": "string"
+        },
+        "StartOffset": {
+          "type": "string"
+        },
+        "ExtroOffset": {
+          "type": "string"
+        },
+        "ForceMainLength": {
+          "type": "string"
+        },
+        "VolumePoints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MediaVolumePoint"
+          }
+        },
+        "AutoTrimMode": {
+          "enum": [
+            "None",
+            "Fade",
+            "Stretch"
+          ],
+          "type": "string"
+        },
+        "AutoTrim": {
+          "type": "string"
+        },
+        "AutoTrimPlayRate": {
+          "format": "double",
+          "type": "number"
+        },
+        "Title": {
+          "type": "string"
+        },
+        "TitleId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "Artists": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ArtistInfo"
+          }
+        },
+        "ForceItemSubTitle": {
+          "type": "string"
+        },
+        "HasNotes": {
+          "type": "boolean"
+        },
+        "Notes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ItemNote"
+          }
+        },
+        "Settings": {
+          "type": "string"
+        },
+        "RejectedItems": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RejectedItem"
+          }
+        },
+        "MediaId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "MediaExternalReference": {
+          "type": "string"
+        },
+        "MediaList": {
+          "$ref": "#/definitions/MediaList"
+        },
+        "InformationLevel": {
+          "enum": [
+            "None",
+            "MediaItem",
+            "HasNotes",
+            "FullNotes",
+            "Full"
+          ],
+          "type": "string"
+        },
+        "IsDisplayItemOnly": {
+          "type": "boolean"
+        },
+        "EndTriggers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/EndTrigger"
+          }
+        },
+        "Information": {
+          "type": "array",
+          "items": {
+            "format": "float",
+            "type": "number"
+          }
+        },
+        "InformationString": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "LogItemSequence": {
+      "type": "object",
+      "properties": {
+        "Base": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "Index": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "Reference": {
+          "format": "int32",
+          "type": "integer"
+        }
+      }
+    },
+    "LogItemSchedulerSettings": {
+      "type": "object",
+      "properties": {
+        "ItemAttributes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ItemAttribute"
+          }
+        },
+        "StartYear": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "EndYear": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "IsSimulcastItem": {
+          "type": "boolean"
+        },
+        "PreventedAttributes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ItemAttribute"
+          }
+        },
+        "EndingType": {
+          "enum": [
+            "NonSpecific",
+            "Ends",
+            "Fades",
+            "Sustain",
+            "SlowFade"
+          ],
+          "type": "string"
+        }
+      }
+    },
+    "MediaVolumePoint": {
+      "type": "object",
+      "properties": {
+        "Position": {
+          "type": "string"
+        },
+        "Volume": {
+          "format": "float",
+          "type": "number"
+        },
+        "Reference": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "PointType": {
+          "enum": [
+            "Unknown",
+            "Start",
+            "End"
+          ],
+          "type": "string"
+        },
+        "IsAutoGenerated": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ItemNote": {
+      "type": "object",
+      "properties": {
+        "Reference": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "Notes": {
+          "type": "string"
+        },
+        "Type": {
+          "enum": [
+            "Presenter",
+            "AIVoiceLink",
+            "DigitalRadio",
+            "RDS",
+            "Web",
+            "SocialMediaShort",
+            "SocialMediaLong",
+            "Technical"
+          ],
+          "type": "string"
+        }
+      }
+    },
+    "RejectedItem": {
+      "type": "object",
+      "properties": {
+        "Reference": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "StationId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "LogReference": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "LogSequenceBase": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "ReferenceDateUtc": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "RuleNumber": {
+          "enum": [
+            "NoRules",
+            "TooManyItemsRejected",
+            "HourRestriction",
+            "StartEndDateRestriction",
+            "AdvertAlreadyInBreak",
+            "AdvertAdvertiserAlreadyInBreak",
+            "AdvertBreakFullMaxCount",
+            "AdvertBreakFullMaxDuration",
+            "AdvertSoftCollision",
+            "AdvertHardCollision",
+            "AdvertBreakAlreadyHasTopOrTail",
+            "AdvertWrongCategory",
+            "SongYearForceClock",
+            "SongEndingForceClock",
+            "SongSeparation",
+            "SongAdjacentDaySeparation",
+            "SongLastNextWeekdaySeparation",
+            "SongLastNextWeekendSeparation",
+            "SongNearestPlaySeparation",
+            "SongHourProtection",
+            "SongAdjacentDayHourProtection",
+            "SongLastNextWeekdayHourProtection",
+            "SongLastNextWeekendHourProtection",
+            "SongNearestPlayHourProtection",
+            "SongDriveTimeHourProtection",
+            "SongDriveTimeWeekdayHourProtection",
+            "SongDriveTimeWeekendHourProtection",
+            "SongTitleSeparation",
+            "SongTitleAdjacentDaySeparation",
+            "SongTitleLastNextWeekdaySeparation",
+            "SongTitleLastNextWeekendSeparation",
+            "SongTitleNearestPlaySeparation",
+            "SongTitleHourProtection",
+            "SongTitleAdjacentDayHourProtection",
+            "SongTitleLastNextWeekdayHourProtection",
+            "SongTitleLastNextWeekendHourProtection",
+            "SongTitleNearestPlayHourProtection",
+            "SongTitleDriveTimeHourProtection",
+            "SongTitleDriveTimeWeekdayHourProtection",
+            "SongTitleDriveTimeWeekendHourProtection",
+            "SongArtistSeparation",
+            "SongArtistAdjacentDaySeparation",
+            "SongArtistLastNextWeekdaySeparation",
+            "SongArtistLastNextWeekendSeparation",
+            "SongArtistNearestPlaySeparation",
+            "SongArtistHourProtection",
+            "SongArtistAdjacentDayHourProtection",
+            "SongArtistLastNextWeekdayHourProtection",
+            "SongArtistLastNextWeekendHourProtection",
+            "SongArtistNearestPlayHourProtection",
+            "SongArtistDriveTimeHourProtection",
+            "SongArtistDriveTimeWeekdayHourProtection",
+            "SongArtistDriveTimeWeekendHourProtection",
+            "SongArtistGroupSeparation",
+            "SongArtistGroupAdjacentDaySeparation",
+            "SongArtistGroupLastNextWeekdaySeparation",
+            "SongArtistGroupLastNextWeekendSeparation",
+            "SongArtistGroupNearestPlaySeparation",
+            "SongArtistGroupHourProtection",
+            "SongArtistGroupAdjacentDayHourProtection",
+            "SongArtistGroupLastNextWeekdayHourProtection",
+            "SongArtistGroupLastNextWeekendHourProtection",
+            "SongArtistGroupNearestPlayHourProtection",
+            "SongArtistGroupDriveTimeHourProtection",
+            "SongArtistGroupDriveTimeWeekdayHourProtection",
+            "SongArtistGroupDriveTimeWeekendHourProtection",
+            "SongAlbumSeparation",
+            "SongAlbumAdjacentDaySeparation",
+            "SongAlbumLastNextWeekdaySeparation",
+            "SongAlbumLastNextWeekendSeparation",
+            "SongAlbumNearestPlaySeparation",
+            "SongAlbumHourProtection",
+            "SongAlbumAdjacentDayHourProtection",
+            "SongAlbumLastNextWeekdayHourProtection",
+            "SongAlbumLastNextWeekendHourProtection",
+            "SongAlbumNearestPlayHourProtection",
+            "SongAlbumDriveTimeHourProtection",
+            "SongAlbumDriveTimeWeekdayHourProtection",
+            "SongAlbumDriveTimeWeekendHourProtection",
+            "SongCategoryForceClock",
+            "SongCategoryEmpty",
+            "SongTypeForceClock",
+            "SongGenderForceClock",
+            "SongEraForceClock",
+            "SongTagForceClock",
+            "SongEnergyForceClock",
+            "SongTempoForceClock",
+            "SongTextureForceClock",
+            "SongMoodForceClock",
+            "SongBurnoutForceClock",
+            "SongTagPreventedClock",
+            "SongCategoryMinMaxSep",
+            "SongTypeMinMaxSep",
+            "SongTypeFollow",
+            "SongGenderMinMaxSep",
+            "SongGenderFollow",
+            "SongEraMinMaxSep",
+            "SongEraFollow",
+            "SongCharacteristicMinMaxSep",
+            "SongCharacteristicFollow",
+            "SongEnergyMinMaxSep",
+            "SongEnergyFollow",
+            "SongTempoMinMaxSep",
+            "SongTempoFollow",
+            "SongTextureMinMaxSep",
+            "SongTextureFollow",
+            "SongMoodMinMaxSep",
+            "SongMoodFollow",
+            "SongBurnoutMinMaxSep",
+            "SongBurnoutFollow",
+            "SongTagMax",
+            "LinkYearForceClock",
+            "LinkEndingForceClock",
+            "LinkSeparation",
+            "LinkAdjacentDaySeparation",
+            "LinkLastNextWeekdaySeparation",
+            "LinkLastNextWeekendSeparation",
+            "LinkNearestPlaySeparation",
+            "LinkHourProtection",
+            "LinkAdjacentDayHourProtection",
+            "LinkLastNextWeekdayHourProtection",
+            "LinkLastNextWeekendHourProtection",
+            "LinkNearestPlayHourProtection",
+            "LinkCategoryForceClock",
+            "LinkCategoryEmpty",
+            "LinkTypeForceClock",
+            "LinkGenderForceClock",
+            "LinkEraForceClock",
+            "LinkEnergyForceClock",
+            "LinkTempoForceClock",
+            "LinkTextureForceClock",
+            "LinkMoodForceClock",
+            "LinkBurnoutForceClock",
+            "LinkTagForceClock",
+            "LinkTagPreventedClock",
+            "LinkCategoryMinMaxSep",
+            "LinkTypeMinMaxSep",
+            "LinkTypeFollow",
+            "LinkGenderMinMaxSep",
+            "LinkGenderFollow",
+            "LinkEraMinMaxSep",
+            "LinkEraFollow",
+            "LinkCharacteristicMinMaxSep",
+            "LinkCharacteristicFollow",
+            "LinkEnergyMinMaxSep",
+            "LinkEnergyFollow",
+            "LinkTempoMinMaxSep",
+            "LinkTempoFollow",
+            "LinkTextureMinMaxSep",
+            "LinkTextureFollow",
+            "LinkMoodMinMaxSep",
+            "LinkMoodFollow",
+            "LinkBurnoutMinMaxSep",
+            "LinkBurnoutFollow",
+            "LinkTagMax"
+          ],
+          "type": "string"
+        },
+        "RuleReason": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "PassNumber": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "MediaId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "ItemType": {
+          "enum": [
+            "Empty",
+            "AbsoluteTime",
+            "BasicMediaItem",
+            "Link",
+            "Advert",
+            "Hardware",
+            "StationRules",
+            "Song",
+            "Script",
+            "VoiceLink",
+            "Command",
+            "SplitGroup",
+            "SplitAdvert",
+            "AutoHook",
+            "GapTime",
+            "SoftTime",
+            "ResetTime",
+            "Clock",
+            "NewsStory",
+            "NewsMedia",
+            "NewsBulletin",
+            "Social",
+            "ShowInformation",
+            "HourStart"
+          ],
+          "type": "string"
+        },
+        "RelatedItemId1": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "RelatedItemId2": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "RelatedDateUtc": {
+          "format": "date-time",
+          "type": "string"
+        }
+      }
+    },
+    "MediaList": {
+      "type": "object",
+      "properties": {
+        "Items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MediaListItem"
+          }
+        },
+        "ObserveItemChanges": {
+          "type": "boolean"
+        },
+        "MediaId": {
+          "format": "int32",
+          "type": "integer"
+        }
+      }
+    },
+    "EndTrigger": {
+      "type": "object",
+      "properties": {
+        "TriggerType": {
+          "enum": [
+            "None",
+            "Hardware"
+          ],
+          "type": "string"
+        },
+        "HWLineState": {
+          "enum": [
+            "Invalid",
+            "Clear",
+            "Set",
+            "Flash",
+            "Pulse"
+          ],
+          "type": "string"
+        },
+        "HWLineNumber": {
+          "format": "int32",
+          "type": "integer"
+        }
+      }
+    },
+    "MediaListItem": {
+      "type": "object",
+      "properties": {
+        "ListItemType": {
+          "enum": [
+            "Pause",
+            "Full",
+            "Hook",
+            "Separator",
+            "ExtendedHook",
+            "Section"
+          ],
+          "type": "string"
+        },
+        "MediaItem": {
+          "$ref": "#/definitions/MediaItem"
+        },
+        "LogReference": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "SchedulerReference": {
+          "type": "string"
+        },
+        "SectionTiming": {
+          "$ref": "#/definitions/MediaTiming"
+        },
+        "VolumeChanges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/VolumeChange"
+          }
+        }
+      }
+    },
+    "VolumeChange": {
+      "type": "object",
+      "properties": {
+        "Reference": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "StartTime": {
+          "type": "string"
+        },
+        "Duration": {
+          "type": "string"
+        },
+        "StartVolume": {
+          "format": "float",
+          "type": "number"
+        },
+        "EndVolume": {
+          "format": "float",
+          "type": "number"
+        },
+        "NotifiedStart": {
+          "type": "boolean"
+        },
+        "NotifiedEnd": {
+          "type": "boolean"
+        },
+        "NotifyVolume": {
+          "format": "float",
+          "type": "number"
+        },
+        "Notified": {
+          "type": "boolean"
+        },
+        "Active": {
+          "type": "boolean"
+        },
+        "RemoveWhenComplete": {
+          "type": "boolean"
+        },
+        "SetVolumePermanently": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ObjectResult[MediaItem]": {
+      "type": "object",
+      "properties": {
+        "Exception": {
+          "type": "object"
+        },
+        "Result": {
+          "$ref": "#/definitions/MediaItem"
+        },
+        "ExceptionMessage": {
+          "type": "string"
+        },
+        "FailMessage": {
+          "type": "string"
+        },
+        "ExceptionTypeName": {
+          "type": "string"
+        }
+      }
+    },
+    "ObjectResult[MediaItems]": {
+      "type": "object",
+      "properties": {
+        "Exception": {
+          "type": "object"
+        },
+        "Result": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MediaItem"
+          }
+        },
+        "ExceptionMessage": {
+          "type": "string"
+        },
+        "FailMessage": {
+          "type": "string"
+        },
+        "ExceptionTypeName": {
+          "type": "string"
+        }
+      }
+    },
+    "SetItemMetadataParams": {
+      "type": "object",
+      "properties": {
+        "ItemTitle": {
+          "type": "string"
+        },
+        "Artists": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ItemDescription": {
+          "type": "string"
+        },
+        "DisplayAs": {
+          "type": "string"
+        },
+        "DisplayBy": {
+          "type": "string"
+        }
+      }
+    },
+    "EnumResult[StatusEnum]": {
+      "type": "object",
+      "properties": {
+        "Exception": {
+          "type": "object"
+        },
+        "Result": {
+          "enum": [
+            "None",
+            "ControlRequested",
+            "IsController"
+          ],
+          "type": "string",
+          "readOnly": true
+        },
+        "ResultString": {
+          "type": "string",
+          "readOnly": true
+        },
+        "ExceptionMessage": {
+          "type": "string"
+        },
+        "FailMessage": {
+          "type": "string"
+        },
+        "ExceptionTypeName": {
+          "type": "string"
+        }
+      }
+    },
+    "ObjectResult[List[SimpleNowPlayingItem]]": {
+      "type": "object",
+      "properties": {
+        "Exception": {
+          "type": "object"
+        },
+        "Result": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SimpleNowPlayingItem"
+          }
+        },
+        "ExceptionMessage": {
+          "type": "string"
+        },
+        "FailMessage": {
+          "type": "string"
+        },
+        "ExceptionTypeName": {
+          "type": "string"
+        }
+      }
+    },
+    "SimpleNowPlayingItem": {
+      "type": "object",
+      "properties": {
+        "ItemTitle": {
+          "type": "string"
+        },
+        "Artists": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "MediaStart": {
+          "type": "string"
+        },
+        "MediaEnd": {
+          "type": "string"
+        },
+        "IntroStart": {
+          "type": "string"
+        },
+        "IntroEnd": {
+          "type": "string"
+        },
+        "HookStart": {
+          "type": "string"
+        },
+        "HookEnd": {
+          "type": "string"
+        },
+        "Extro": {
+          "type": "string"
+        },
+        "MediaId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "ActualLength": {
+          "type": "string"
+        },
+        "ItemType": {
+          "enum": [
+            "Empty",
+            "AbsoluteTime",
+            "BasicMediaItem",
+            "Link",
+            "Advert",
+            "Hardware",
+            "StationRules",
+            "Song",
+            "Script",
+            "VoiceLink",
+            "Command",
+            "SplitGroup",
+            "SplitAdvert",
+            "AutoHook",
+            "GapTime",
+            "SoftTime",
+            "ResetTime",
+            "Clock",
+            "NewsStory",
+            "NewsMedia",
+            "NewsBulletin",
+            "Social",
+            "ShowInformation",
+            "HourStart"
+          ],
+          "type": "string"
+        },
+        "EstimatedStartDateTimeUtc": {
+          "format": "date-time",
+          "type": "string"
+        }
+      }
+    },
+    "ObjectResult[ShowInformation]": {
+      "type": "object",
+      "properties": {
+        "Exception": {
+          "type": "object"
+        },
+        "Result": {
+          "$ref": "#/definitions/ShowInformation"
+        },
+        "ExceptionMessage": {
+          "type": "string"
+        },
+        "FailMessage": {
+          "type": "string"
+        },
+        "ExceptionTypeName": {
+          "type": "string"
+        }
+      }
+    },
+    "ShowInformation": {
+      "type": "object",
+      "properties": {
+        "Reference": {
+          "type": "string"
+        },
+        "ShowName": {
+          "type": "string"
+        },
+        "UserLoginName": {
+          "type": "string"
+        },
+        "UserFullName": {
+          "type": "string"
+        },
+        "ShowTitle": {
+          "type": "string"
+        },
+        "ShowPresenters": {
+          "type": "array",
+          "items": {
+            "format": "int32",
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "ObjectResult[MediaPlayerSummaryState]": {
+      "type": "object",
+      "properties": {
+        "Exception": {
+          "type": "object"
+        },
+        "Result": {
+          "$ref": "#/definitions/MediaPlayerSummaryState"
+        },
+        "ExceptionMessage": {
+          "type": "string"
+        },
+        "FailMessage": {
+          "type": "string"
+        },
+        "ExceptionTypeName": {
+          "type": "string"
+        }
+      }
+    },
+    "MediaPlayerSummaryState": {
+      "type": "object",
+      "properties": {
+        "Reference": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "DeviceContentType": {
+          "enum": [
+            "AudioFile",
+            "VideoFile",
+            "AudioStream",
+            "VideoStream",
+            "AudioLineIn",
+            "MediaListAll",
+            "MediaListRotate",
+            "MediaListRandom",
+            "SplitGroup",
+            "NetworkSplitGroup",
+            "Command"
+          ],
+          "type": "string"
+        },
+        "Settings": {
+          "$ref": "#/definitions/PlayerSettings"
+        },
+        "PreviewMode": {
+          "type": "boolean"
+        },
+        "IsFadingOut": {
+          "type": "boolean"
+        },
+        "IsFadingOutNotified": {
+          "type": "boolean"
+        },
+        "FadingOutNotifyLevel": {
+          "format": "float",
+          "type": "number"
+        },
+        "FirstPlayStartDate": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "ListMode": {
+          "type": "boolean"
+        },
+        "ListHookMode": {
+          "type": "boolean"
+        },
+        "MediaSegmentType": {
+          "enum": [
+            "None",
+            "Other",
+            "Hook",
+            "Extro"
+          ],
+          "type": "string"
+        },
+        "ForceOverlayCaption": {
+          "type": "string"
+        },
+        "PositionIndex": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "LogReference": {
+          "format": "double",
+          "type": "number"
+        },
+        "ExtSchedulerReference": {
+          "type": "string"
+        },
+        "DuckedVolumeScaleFactor": {
+          "format": "double",
+          "type": "number"
+        },
+        "PlayerIsDucked": {
+          "type": "boolean"
+        },
+        "CurrentVolume": {
+          "format": "float",
+          "type": "number"
+        },
+        "DefaultVolume": {
+          "format": "float",
+          "type": "number"
+        },
+        "State": {
+          "$ref": "#/definitions/MediaPlayerState"
+        }
+      }
+    },
+    "PlayerSettings": {
+      "type": "object",
+      "properties": {
+        "Type": {
+          "enum": [
+            "Audio"
+          ],
+          "type": "string"
+        },
+        "DeviceUid": {
+          "type": "string"
+        },
+        "DeviceId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "Caption": {
+          "type": "string"
+        },
+        "BackColorLight": {
+          "type": "string"
+        },
+        "TextColorLight": {
+          "type": "string"
+        },
+        "BackColorDark": {
+          "type": "string"
+        },
+        "TextColorDark": {
+          "type": "string"
+        },
+        "IsAlwaysVisible": {
+          "type": "boolean"
+        }
+      }
+    },
+    "MediaPlayerState": {
+      "type": "object",
+      "properties": {
+        "MediaItem": {
+          "$ref": "#/definitions/MediaItem"
+        },
+        "PreservePitch": {
+          "type": "boolean"
+        },
+        "PlayRate": {
+          "format": "float",
+          "type": "number"
+        },
+        "IsPlayRateShrink": {
+          "type": "boolean",
+          "readOnly": true
+        },
+        "HasPlayRate": {
+          "type": "boolean",
+          "readOnly": true
+        },
+        "StretchPercentCaption": {
+          "type": "string",
+          "readOnly": true
+        },
+        "Status": {
+          "enum": [
+            "Closed",
+            "Open",
+            "Cued",
+            "Paused",
+            "Playing",
+            "Locked"
+          ],
+          "type": "string"
+        },
+        "MediaEndReached": {
+          "type": "boolean"
+        },
+        "ClosingInProgress": {
+          "type": "boolean",
+          "readOnly": true
+        },
+        "IsPlaying": {
+          "type": "boolean",
+          "readOnly": true
+        },
+        "IsCued": {
+          "type": "boolean",
+          "readOnly": true
+        },
+        "HasContent": {
+          "type": "boolean",
+          "readOnly": true
+        },
+        "PlayMode": {
+          "enum": [
+            "PlayAll",
+            "PlaySegment"
+          ],
+          "type": "string",
+          "readOnly": true
+        },
+        "MediaSegmentToPlay": {
+          "$ref": "#/definitions/MediaTiming"
+        },
+        "MediaSegmentExtro": {
+          "type": "string"
+        },
+        "ListPlaySummary": {
+          "type": "string"
+        },
+        "PlayedTimeActual": {
+          "type": "string"
+        },
+        "PlayedTimeReported": {
+          "type": "string"
+        },
+        "RemainingTimeActual": {
+          "type": "string"
+        },
+        "RemainingTimeReported": {
+          "type": "string"
+        },
+        "RemainingTimeToExtro": {
+          "type": "string"
+        },
+        "SectionPercentPlayed": {
+          "format": "double",
+          "type": "number"
+        },
+        "OverallPercentPlayedReported": {
+          "format": "double",
+          "type": "number"
+        },
+        "OverallPercentPlayedActual": {
+          "format": "double",
+          "type": "number"
+        },
+        "CurrentSection": {
+          "enum": [
+            "Empty",
+            "PreIntro",
+            "DuringIntro",
+            "MainSection",
+            "PreExtroFirstStage",
+            "PreExtroSecondStage",
+            "PostExtro"
+          ],
+          "type": "string"
+        },
+        "ActiveLoop": {
+          "$ref": "#/definitions/MediaLoopTiming"
+        },
+        "HasActiveLoop": {
+          "type": "boolean",
+          "readOnly": true
+        },
+        "ActiveLoopDoneCount": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "ActiveLoopLoopsRemaining": {
+          "format": "int32",
+          "type": "integer",
+          "readOnly": true
+        },
+        "ActiveLoopHasJumpToEnd": {
+          "type": "object",
+          "readOnly": true
+        }
+      }
+    },
+    "ObjectResult[List[MediaPlayerSummaryState]]": {
+      "type": "object",
+      "properties": {
+        "Exception": {
+          "type": "object"
+        },
+        "Result": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MediaPlayerSummaryState"
+          }
+        },
+        "ExceptionMessage": {
+          "type": "string"
+        },
+        "FailMessage": {
+          "type": "string"
+        },
+        "ExceptionTypeName": {
+          "type": "string"
+        }
+      }
+    },
+    "ConnectToLiveEngineRequest": {
+      "type": "object",
+      "properties": {
+        "SendUrl": {
+          "type": "string"
+        },
+        "ReceiveUrl": {
+          "type": "string"
+        }
+      }
+    },
+    "VoidResult": {
+      "type": "object",
+      "properties": {
+        "Exception": {
+          "type": "object"
+        },
+        "ExceptionMessage": {
+          "type": "string"
+        },
+        "FailMessage": {
+          "type": "string"
+        },
+        "ExceptionTypeName": {
+          "type": "string"
+        }
+      }
+    },
+    "EnumResult[QaeModeEnum]": {
+      "type": "object",
+      "properties": {
+        "Exception": {
+          "type": "object"
+        },
+        "Result": {
+          "enum": [
+            "Standby",
+            "LiveAssist",
+            "Automation",
+            "AutoFade",
+            "QueryLog"
+          ],
+          "type": "string",
+          "readOnly": true
+        },
+        "ResultString": {
+          "type": "string",
+          "readOnly": true
+        },
+        "ExceptionMessage": {
+          "type": "string"
+        },
+        "FailMessage": {
+          "type": "string"
+        },
+        "ExceptionTypeName": {
+          "type": "string"
+        }
+      }
+    },
+    "ObjectResult[QaeBaseItem]": {
+      "type": "object",
+      "properties": {
+        "Exception": {
+          "type": "object"
+        },
+        "Result": {
+          "$ref": "#/definitions/QaeBaseItem"
+        },
+        "ExceptionMessage": {
+          "type": "string"
+        },
+        "FailMessage": {
+          "type": "string"
+        },
+        "ExceptionTypeName": {
+          "type": "string"
+        }
+      }
+    },
+    "QaeBaseItem": {
+      "type": "object",
+      "properties": {
+        "_IsDumpable": {
+          "type": "boolean"
+        },
+        "IsNextItemPreCued": {
+          "type": "boolean"
+        },
+        "IsNextItemCued": {
+          "type": "boolean"
+        },
+        "IsNextItemStarted": {
+          "type": "boolean"
+        },
+        "IsCompleted": {
+          "type": "boolean"
+        },
+        "IsMarkedAsDone": {
+          "type": "boolean"
+        },
+        "LogItem": {
+          "$ref": "#/definitions/LogItem"
+        },
+        "NowPlayingInformationOverrideItem": {
+          "$ref": "#/definitions/LogItem"
+        },
+        "qaeType": {
+          "enum": [
+            "Empty",
+            "WaitingForGoItem",
+            "MediaItem",
+            "TimeItem",
+            "CommandItem",
+            "SplitItem",
+            "HourStartItem"
+          ],
+          "type": "string"
+        },
+        "SecondaryQaeItem": {
+          "$ref": "#/definitions/QaeBaseItem"
+        },
+        "secondaryStartOffset": {
+          "type": "string"
+        },
+        "secondaryPlayFirst": {
+          "type": "boolean"
+        },
+        "secondaryOverallPercentPlayed": {
+          "format": "double",
+          "type": "number"
+        },
+        "secondaryInformationPercentPlayed": {
+          "format": "double",
+          "type": "number"
+        },
+        "playAtSweeperVolume": {
+          "type": "boolean"
+        },
+        "preCueTime": {
+          "type": "string"
+        },
+        "HasChainType": {
+          "type": "boolean"
+        },
+        "HasDuration": {
+          "type": "boolean"
+        },
+        "currentSection": {
+          "enum": [
+            "Empty",
+            "PreIntro",
+            "DuringIntro",
+            "MainSection",
+            "PreExtroFirstStage",
+            "PreExtroSecondStage",
+            "PostExtro"
+          ],
+          "type": "string"
+        },
+        "WarningSeconds": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "SectionPercentPlayed": {
+          "format": "double",
+          "type": "number"
+        },
+        "startDateTime": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "playedTime": {
+          "type": "string"
+        },
+        "playedTimeReported": {
+          "type": "string"
+        },
+        "remainingTimeBase": {
+          "type": "string"
+        },
+        "effectiveRemainingTime": {
+          "type": "string"
+        },
+        "remainingTimeOverall": {
+          "type": "string"
+        },
+        "remainingTimeOverallReported": {
+          "type": "string"
+        },
+        "percentPlayed": {
+          "format": "double",
+          "type": "number"
+        },
+        "overallPercentPlayed": {
+          "format": "double",
+          "type": "number"
+        },
+        "percentPlayedReported": {
+          "format": "double",
+          "type": "number"
+        },
+        "overallPercentPlayedReported": {
+          "format": "double",
+          "type": "number"
+        },
+        "finalPlayedLength": {
+          "type": "string"
+        },
+        "earlyDeathTime": {
+          "type": "string"
+        },
+        "cueLevel": {
+          "enum": [
+            "NotCued",
+            "PartCued",
+            "FullyCued"
+          ],
+          "type": "string"
+        },
+        "hasStarted": {
+          "enum": [
+            "Stopped",
+            "WaitingForSecondary",
+            "FullyStarted",
+            "Starting"
+          ],
+          "type": "string"
+        },
+        "PlayFailCode": {
+          "enum": [
+            "None",
+            "NoAvailablePlayer",
+            "AiScriptGenerationFailed",
+            "AiMediaGenerationFailed",
+            "CommandFailed"
+          ],
+          "type": "string"
+        },
+        "isPaused": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ObjectResult[QaeItems]": {
+      "type": "object",
+      "properties": {
+        "Exception": {
+          "type": "object"
+        },
+        "Result": {
+          "$ref": "#/definitions/QaeItems"
+        },
+        "ExceptionMessage": {
+          "type": "string"
+        },
+        "FailMessage": {
+          "type": "string"
+        },
+        "ExceptionTypeName": {
+          "type": "string"
+        }
+      }
+    },
+    "QaeItems": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/QaeBaseItem"
+          }
+        }
+      }
+    },
+    "EnumResult[TransferStatusEnum]": {
+      "type": "object",
+      "properties": {
+        "Exception": {
+          "type": "object"
+        },
+        "Result": {
+          "enum": [
+            "None",
+            "TransferringIn",
+            "TransferringOut"
+          ],
+          "type": "string",
+          "readOnly": true
+        },
+        "ResultString": {
+          "type": "string",
+          "readOnly": true
+        },
+        "ExceptionMessage": {
+          "type": "string"
+        },
+        "FailMessage": {
+          "type": "string"
+        },
+        "ExceptionTypeName": {
+          "type": "string"
+        }
+      }
+    },
+    "ObjectResult[List[String]]": {
+      "type": "object",
+      "properties": {
+        "Exception": {
+          "type": "object"
+        },
+        "Result": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ExceptionMessage": {
+          "type": "string"
+        },
+        "FailMessage": {
+          "type": "string"
+        },
+        "ExceptionTypeName": {
+          "type": "string"
+        }
+      }
+    },
+    "ObjectResult[List[Int32]]": {
+      "type": "object",
+      "properties": {
+        "Exception": {
+          "type": "object"
+        },
+        "Result": {
+          "type": "array",
+          "items": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "ExceptionMessage": {
+          "type": "string"
+        },
+        "FailMessage": {
+          "type": "string"
+        },
+        "ExceptionTypeName": {
+          "type": "string"
+        }
+      }
+    },
+    "ObjectResult[List[StationInfo]]": {
+      "type": "object",
+      "properties": {
+        "Exception": {
+          "type": "object"
+        },
+        "Result": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/StationInfo"
+          }
+        },
+        "ExceptionMessage": {
+          "type": "string"
+        },
+        "FailMessage": {
+          "type": "string"
+        },
+        "ExceptionTypeName": {
+          "type": "string"
+        }
+      }
+    },
+    "StationInfo": {
+      "type": "object",
+      "properties": {
+        "StationName": {
+          "type": "string"
+        },
+        "StationId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "ParentStationId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "FamilyStationId": {
+          "format": "int32",
+          "type": "integer",
+          "readOnly": true
+        },
+        "HasParentStation": {
+          "type": "boolean",
+          "readOnly": true
+        },
+        "FamilySettingsStationId": {
+          "format": "int32",
+          "type": "integer",
+          "readOnly": true
+        },
+        "CallSign": {
+          "type": "string"
+        },
+        "Tagline": {
+          "type": "string"
+        },
+        "StationType": {
+          "enum": [
+            "Playout",
+            "MyriadNetworkSE",
+            "SplitPlayer"
+          ],
+          "type": "string"
+        },
+        "IsEnabled": {
+          "type": "boolean"
+        },
+        "IsTrainingStation": {
+          "type": "boolean"
+        },
+        "UseParentStationSettings": {
+          "type": "boolean"
+        },
+        "StationReference": {
+          "type": "string"
+        }
+      }
+    },
+    "ObjectResult[DateTime]": {
+      "type": "object",
+      "properties": {
+        "Exception": {
+          "type": "object"
+        },
+        "Result": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "ExceptionMessage": {
+          "type": "string"
+        },
+        "FailMessage": {
+          "type": "string"
+        },
+        "ExceptionTypeName": {
+          "type": "string"
+        }
+      }
+    },
+    "ObjectResult[MyriadUser]": {
+      "type": "object",
+      "properties": {
+        "Exception": {
+          "type": "object"
+        },
+        "Result": {
+          "$ref": "#/definitions/MyriadUser"
+        },
+        "ExceptionMessage": {
+          "type": "string"
+        },
+        "FailMessage": {
+          "type": "string"
+        },
+        "ExceptionTypeName": {
+          "type": "string"
+        }
+      }
+    },
+    "MyriadUser": {
+      "type": "object",
+      "properties": {
+        "Preferences": {
+          "$ref": "#/definitions/Preferences"
+        },
+        "MyriadPermissions": {
+          "$ref": "#/definitions/MyriadPermissions"
+        },
+        "PermissionsCollection": {
+          "$ref": "#/definitions/PermissionsList"
+        },
+        "DirectoryPermissions": {
+          "$ref": "#/definitions/DirectoryPermissions"
+        },
+        "Website1": {
+          "type": "string"
+        },
+        "Website2": {
+          "type": "string"
+        },
+        "AllowLogin": {
+          "type": "boolean"
+        },
+        "Reference": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "GUID": {
+          "format": "uuid",
+          "type": "string",
+          "example": "00000000-0000-0000-0000-000000000000"
+        },
+        "Category": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "SecurityGroup": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "UseSecurityGroupDefaults": {
+          "type": "boolean"
+        },
+        "IsSoftwareAccount": {
+          "type": "boolean"
+        },
+        "CreateDateUtc": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "LastModifiedDateUtc": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "AccessEndUtc": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "CompanyName": {
+          "type": "string"
+        },
+        "JobTitle": {
+          "type": "string"
+        },
+        "Notes": {
+          "type": "string"
+        },
+        "ExternalReference": {
+          "type": "string"
+        },
+        "Telephone1": {
+          "type": "string"
+        },
+        "Telephone2": {
+          "type": "string"
+        },
+        "Fax": {
+          "type": "string"
+        },
+        "Mobile": {
+          "type": "string"
+        },
+        "Email1": {
+          "type": "string"
+        },
+        "Email2": {
+          "type": "string"
+        },
+        "Email3": {
+          "type": "string"
+        },
+        "Address": {
+          "type": "string"
+        },
+        "StreamUrl": {
+          "type": "string"
+        },
+        "VoiceSettings": {
+          "type": "string"
+        },
+        "LoginName": {
+          "type": "string"
+        },
+        "BrUserId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "UseADAccountName": {
+          "type": "boolean"
+        },
+        "ADAccountName": {
+          "type": "string"
+        },
+        "UseLDAPAuth": {
+          "type": "boolean"
+        },
+        "LDAPUsername": {
+          "type": "string"
+        },
+        "LoginDisabled": {
+          "type": "boolean"
+        },
+        "LoginCanChangePassword": {
+          "type": "boolean"
+        },
+        "LoginMustChangePassword": {
+          "type": "boolean"
+        },
+        "LoginAllowAutoLogin": {
+          "type": "boolean"
+        },
+        "LoginDisableMFA": {
+          "type": "boolean"
+        },
+        "MixcloudAccount": {
+          "type": "string"
+        },
+        "AuthenticatedViaMethods": {
+          "enum": [
+            "None",
+            "SystemAccount",
+            "DayCode",
+            "Password",
+            "AD",
+            "OTP",
+            "LDAP",
+            "BdotR"
+          ],
+          "type": "string"
+        },
+        "PersonalToContact": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "IsSystemAccount": {
+          "type": "boolean"
+        },
+        "EditHistory": {
+          "type": "string"
+        }
+      }
+    },
+    "Preferences": {
+      "type": "object",
+      "properties": {
+        "BaseDirectory": {
+          "type": "string",
+          "readOnly": true
+        },
+        "Layout": {
+          "$ref": "#/definitions/LayoutPreferences"
+        },
+        "Players": {
+          "$ref": "#/definitions/PlayerPreferences"
+        },
+        "Recorders": {
+          "$ref": "#/definitions/RecorderPreferences"
+        },
+        "SegEdit": {
+          "$ref": "#/definitions/SegEditPreferences"
+        },
+        "General": {
+          "$ref": "#/definitions/GeneralPreferences"
+        },
+        "MediaItems": {
+          "$ref": "#/definitions/MediaItemPreferences"
+        },
+        "MediaLibrary": {
+          "$ref": "#/definitions/MediaLibraryPreferences"
+        },
+        "Pad": {
+          "$ref": "#/definitions/PadPreferences"
+        },
+        "SmoothEdit": {
+          "$ref": "#/definitions/SmoothEditPreferences"
+        },
+        "Favourites": {
+          "$ref": "#/definitions/FavouritesPreferences"
+        },
+        "QuickRecorder": {
+          "$ref": "#/definitions/QuickRecorderPreferences"
+        },
+        "LogItems": {
+          "$ref": "#/definitions/LogItemPreferences"
+        },
+        "ScheduleEdit": {
+          "$ref": "#/definitions/ScheduleEditPreferences"
+        },
+        "SocialMedia": {
+          "$ref": "#/definitions/SocialMediaPreferences"
+        }
+      }
+    },
+    "MyriadPermissions": {
+      "type": "object",
+      "properties": {
+        "General": {
+          "$ref": "#/definitions/GeneralPermissions"
+        },
+        "Favourites": {
+          "$ref": "#/definitions/FavouritesPermissions"
+        },
+        "MediaItems": {
+          "$ref": "#/definitions/MediaItemPermissions"
+        },
+        "Log": {
+          "$ref": "#/definitions/LogPermissions"
+        },
+        "Reports": {
+          "$ref": "#/definitions/ReportsPermissions"
+        },
+        "StationConnections": {
+          "$ref": "#/definitions/StationConnectionsPermissions"
+        },
+        "News": {
+          "$ref": "#/definitions/NewsPermissions"
+        }
+      }
+    },
+    "PermissionsList": {
+      "type": "object",
+      "properties": {
+        "Items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Permission"
+          }
+        }
+      }
+    },
+    "DirectoryPermissions": {
+      "type": "object",
+      "properties": {
+        "CanEditDirectorySettings": {
+          "type": "boolean"
+        },
+        "CanEditContacts": {
+          "type": "boolean"
+        },
+        "CanEditUsers": {
+          "type": "boolean"
+        },
+        "CanEditUsersAnywhere": {
+          "type": "boolean"
+        },
+        "CanViewUserHistory": {
+          "type": "boolean"
+        }
+      }
+    },
+    "LayoutPreferences": {
+      "type": "object",
+      "properties": {
+        "FullScreen": {
+          "type": "boolean"
+        },
+        "SelectedLayoutNames": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "ShowLayoutsBar": {
+          "type": "boolean"
+        },
+        "ShowLargeTabHeaders": {
+          "type": "boolean"
+        },
+        "ShowLargeFonts": {
+          "type": "boolean"
+        },
+        "SelectTabOnDragOver": {
+          "type": "boolean"
+        },
+        "BaseDirectory": {
+          "type": "string"
+        },
+        "CustomPreferencesXml": {
+          "$ref": "#/definitions/XElement"
+        }
+      }
+    },
+    "PlayerPreferences": {
+      "type": "object",
+      "properties": {
+        "AutoStartPreviewedItems": {
+          "type": "boolean"
+        },
+        "AlwaysShowTransportControls": {
+          "type": "boolean"
+        },
+        "ShowVuBars": {
+          "type": "boolean"
+        },
+        "ShowPictures": {
+          "type": "boolean"
+        },
+        "ShowCurrentVolume": {
+          "type": "boolean"
+        },
+        "ShowLargeCurrentVolume": {
+          "type": "boolean"
+        },
+        "ShowCurrentVolumeMiniPlayers": {
+          "type": "boolean"
+        },
+        "ShowLargeCurrentVolumeMiniPlayers": {
+          "type": "boolean"
+        },
+        "ShowWaveForm": {
+          "type": "boolean"
+        },
+        "PreventRunningMediaBeingClosed": {
+          "type": "boolean"
+        },
+        "PreventRunningMediaBeingReplaced": {
+          "type": "boolean"
+        },
+        "BaseDirectory": {
+          "type": "string"
+        },
+        "CustomPreferencesXml": {
+          "$ref": "#/definitions/XElement"
+        }
+      }
+    },
+    "RecorderPreferences": {
+      "type": "object",
+      "properties": {
+        "ShowVuBars": {
+          "type": "boolean"
+        },
+        "DetailedView": {
+          "type": "boolean"
+        },
+        "ShowWaveForm": {
+          "type": "boolean"
+        },
+        "UseLevelTrigger": {
+          "type": "boolean"
+        },
+        "LevelTriggerPercent": {
+          "format": "float",
+          "type": "number"
+        },
+        "BaseDirectory": {
+          "type": "string"
+        },
+        "CustomPreferencesXml": {
+          "$ref": "#/definitions/XElement"
+        }
+      }
+    },
+    "SegEditPreferences": {
+      "type": "object",
+      "properties": {
+        "UseLevelTrigger": {
+          "type": "boolean"
+        },
+        "LevelTriggerPercent": {
+          "format": "float",
+          "type": "number"
+        },
+        "AutoStartPlayback": {
+          "type": "boolean"
+        },
+        "PreviewTime": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "ViewMarginSeconds": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "BaseDirectory": {
+          "type": "string"
+        },
+        "CustomPreferencesXml": {
+          "$ref": "#/definitions/XElement"
+        }
+      }
+    },
+    "GeneralPreferences": {
+      "type": "object",
+      "properties": {
+        "HideOSWarningMessage": {
+          "type": "boolean"
+        },
+        "PlayoutTheme": {
+          "enum": [
+            "Light",
+            "Dark"
+          ],
+          "type": "string"
+        },
+        "ScheduleTheme": {
+          "enum": [
+            "Light",
+            "Dark"
+          ],
+          "type": "string"
+        },
+        "BaseDirectory": {
+          "type": "string"
+        },
+        "CustomPreferencesXml": {
+          "$ref": "#/definitions/XElement"
+        }
+      }
+    },
+    "MediaItemPreferences": {
+      "type": "object",
+      "properties": {
+        "AllowMoveByDragDrop": {
+          "type": "boolean"
+        },
+        "PromptDeleteAfterImport": {
+          "type": "boolean"
+        },
+        "PromptShowInExplorerAfterExport": {
+          "type": "boolean"
+        },
+        "PreviewItemsOnDoubleClick": {
+          "type": "boolean"
+        },
+        "RecentSearchText": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "LastBrowsedMediaId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "MostRecentNewMediaItemId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "HomeItemMediaId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "BaseDirectory": {
+          "type": "string"
+        },
+        "CustomPreferencesXml": {
+          "$ref": "#/definitions/XElement"
+        }
+      }
+    },
+    "MediaLibraryPreferences": {
+      "type": "object",
+      "properties": {
+        "RecentSearchText": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "LastMediaLibraryBrowserWindowPosition": {
+          "type": "string"
+        },
+        "BaseDirectory": {
+          "type": "string"
+        },
+        "CustomPreferencesXml": {
+          "$ref": "#/definitions/XElement"
+        }
+      }
+    },
+    "PadPreferences": {
+      "type": "object",
+      "properties": {
+        "LastListPath": {
+          "type": "string"
+        },
+        "LastLoadListFilterIndex": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "LastSaveListFilterIndex": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "AutoPlayerMediaBrowserLastMediaId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "AutoPlayerPlaylistMediaBrowserLastMediaId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "LastExportToTransportFilesFolder": {
+          "type": "string"
+        },
+        "BaseDirectory": {
+          "type": "string"
+        },
+        "CustomPreferencesXml": {
+          "$ref": "#/definitions/XElement"
+        }
+      }
+    },
+    "SmoothEditPreferences": {
+      "type": "object",
+      "properties": {
+        "ShowDescriptions": {
+          "type": "boolean"
+        },
+        "ShowTimings": {
+          "type": "boolean"
+        },
+        "OpenFullEditOnLoad": {
+          "type": "boolean"
+        },
+        "SetFocusToMediaContentOnLoad": {
+          "type": "boolean"
+        },
+        "UseAutoComplete": {
+          "type": "boolean"
+        },
+        "BaseDirectory": {
+          "type": "string"
+        },
+        "CustomPreferencesXml": {
+          "$ref": "#/definitions/XElement"
+        }
+      }
+    },
+    "FavouritesPreferences": {
+      "type": "object",
+      "properties": {
+        "PlayMode": {
+          "enum": [
+            "StartNew",
+            "RestartPlaying",
+            "StartStop",
+            "SingleItem"
+          ],
+          "type": "string"
+        },
+        "InstantPlay": {
+          "type": "boolean"
+        },
+        "SelectedSetType": {
+          "enum": [
+            "Unknown",
+            "Personal",
+            "Shared",
+            "Network"
+          ],
+          "type": "string"
+        },
+        "SelectedSetReference": {
+          "type": "string"
+        },
+        "BaseDirectory": {
+          "type": "string"
+        },
+        "CustomPreferencesXml": {
+          "$ref": "#/definitions/XElement"
+        }
+      }
+    },
+    "QuickRecorderPreferences": {
+      "type": "object",
+      "properties": {
+        "AutoTopRecordings": {
+          "type": "boolean"
+        },
+        "AutoTopRecordingsThresholdDb": {
+          "format": "float",
+          "type": "number"
+        },
+        "AutoTailRecordings": {
+          "type": "boolean"
+        },
+        "AutoTailRecordingsThresholdDb": {
+          "format": "float",
+          "type": "number"
+        },
+        "NormaliseRecordings": {
+          "type": "boolean"
+        },
+        "CompandRecordings": {
+          "type": "boolean"
+        },
+        "AutoExtroRecordings": {
+          "type": "boolean"
+        },
+        "BaseDirectory": {
+          "type": "string"
+        },
+        "CustomPreferencesXml": {
+          "$ref": "#/definitions/XElement"
+        }
+      }
+    },
+    "LogItemPreferences": {
+      "type": "object",
+      "properties": {
+        "LastExportPath": {
+          "type": "string"
+        },
+        "LastImportPath": {
+          "type": "string"
+        },
+        "LastImportFilterIndex": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "LastExportFilterIndex": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "DashboardShowAlbumTitle": {
+          "type": "boolean"
+        },
+        "DashboardFillEntireItemWithColor": {
+          "type": "boolean"
+        },
+        "DashboardShowItemTypeColors": {
+          "type": "boolean"
+        },
+        "DashboardShowCustomColors": {
+          "type": "boolean"
+        },
+        "DashboardShowCategoryColors": {
+          "type": "boolean"
+        },
+        "BaseDirectory": {
+          "type": "string"
+        },
+        "CustomPreferencesXml": {
+          "$ref": "#/definitions/XElement"
+        }
+      }
+    },
+    "ScheduleEditPreferences": {
+      "type": "object",
+      "properties": {
+        "ClockEditorWindowLastPosition": {
+          "type": "string"
+        },
+        "FillEntireClockItemWithColor": {
+          "type": "boolean"
+        },
+        "LastClockFilePath": {
+          "type": "string"
+        },
+        "ShowDeckPositions": {
+          "type": "boolean"
+        },
+        "DeckViewMediaIdColumnWidth": {
+          "format": "double",
+          "type": "number"
+        },
+        "DeckViewItemTitleColumnWidth": {
+          "format": "double",
+          "type": "number"
+        },
+        "DeckViewItemSubTitleColumnWidth": {
+          "format": "double",
+          "type": "number"
+        },
+        "DeckViewExtroColumnWidth": {
+          "format": "double",
+          "type": "number"
+        },
+        "ShowSeeAllItemsHint": {
+          "type": "boolean"
+        },
+        "RulesEditorSongCategoriesExpanded": {
+          "type": "boolean"
+        },
+        "RulesEditorVirtualSongCategoryExpanded": {
+          "type": "boolean"
+        },
+        "RulesEditorSongTypesExpanded": {
+          "type": "boolean"
+        },
+        "RulesEditorSongGendersExpanded": {
+          "type": "boolean"
+        },
+        "RulesEditorSongErasExpanded": {
+          "type": "boolean"
+        },
+        "RulesEditorSongCharacteristicsExpanded": {
+          "type": "boolean"
+        },
+        "RulesEditorSongTagsExpanded": {
+          "type": "boolean"
+        },
+        "RulesEditorLinkCategoriesExpanded": {
+          "type": "boolean"
+        },
+        "RulesEditorLinkTypesExpanded": {
+          "type": "boolean"
+        },
+        "RulesEditorLinkGendersExpanded": {
+          "type": "boolean"
+        },
+        "RulesEditorLinkErasExpanded": {
+          "type": "boolean"
+        },
+        "RulesEditorLinkCharacteristicsExpanded": {
+          "type": "boolean"
+        },
+        "RulesEditorLinkTagsExpanded": {
+          "type": "boolean"
+        },
+        "BaseDirectory": {
+          "type": "string"
+        },
+        "CustomPreferencesXml": {
+          "$ref": "#/definitions/XElement"
+        }
+      }
+    },
+    "SocialMediaPreferences": {
+      "type": "object",
+      "properties": {
+        "EditorPostToFacebook": {
+          "type": "boolean"
+        },
+        "EditorPostToBluesky": {
+          "type": "boolean"
+        },
+        "EditorPostToTwitter": {
+          "type": "boolean"
+        },
+        "EditorInAppNotification": {
+          "type": "boolean"
+        },
+        "BaseDirectory": {
+          "type": "string"
+        },
+        "CustomPreferencesXml": {
+          "$ref": "#/definitions/XElement"
+        }
+      }
+    },
+    "GeneralPermissions": {
+      "type": "object",
+      "properties": {
+        "CanEditApplicationSettings": {
+          "type": "boolean"
+        },
+        "CanEditDatabaseSettings": {
+          "type": "boolean"
+        },
+        "CanEditLiveReadScripts": {
+          "type": "boolean"
+        },
+        "CanEditStationAttributes": {
+          "type": "boolean"
+        },
+        "CanEditScheduleClocks": {
+          "type": "boolean"
+        },
+        "CanSetMediaItemScheduling": {
+          "type": "boolean"
+        },
+        "CanChangeStation": {
+          "type": "boolean"
+        },
+        "CanUseMyriadSchedule": {
+          "type": "boolean"
+        },
+        "CanSyncRead": {
+          "type": "boolean"
+        },
+        "CanSyncWrite": {
+          "type": "boolean"
+        },
+        "CanAccessRemotely": {
+          "type": "boolean"
+        },
+        "CanUsePlayoutRemote": {
+          "type": "boolean"
+        },
+        "CanUseMyriadAnywhereLive": {
+          "type": "boolean"
+        },
+        "MyriadAnywhereLiveRole": {
+          "enum": [
+            "Announcer",
+            "Presenter",
+            "Producer"
+          ],
+          "type": "string"
+        }
+      }
+    },
+    "FavouritesPermissions": {
+      "type": "object",
+      "properties": {
+        "CanEditPersonal": {
+          "type": "boolean"
+        },
+        "CanEditShared": {
+          "type": "boolean"
+        }
+      }
+    },
+    "MediaItemPermissions": {
+      "type": "object",
+      "properties": {
+        "CanEditPersonalJumps": {
+          "type": "boolean"
+        },
+        "CanEditSharedJumps": {
+          "type": "boolean"
+        },
+        "CanEditLocalJumps": {
+          "type": "boolean"
+        },
+        "CanImportMediaPacks": {
+          "type": "boolean"
+        },
+        "CanEditMediaItemStreamDetails": {
+          "type": "boolean"
+        },
+        "CanEditMediaItemCommandDetails": {
+          "type": "boolean"
+        },
+        "PersonalMediaRangeStartId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "PersonalMediaRangeEndId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "AllowEditPersonalMedia": {
+          "type": "boolean"
+        },
+        "WriteRanges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/WriteableMediaRange"
+          }
+        },
+        "CanImportRemotely": {
+          "type": "boolean"
+        },
+        "CanExportLocally": {
+          "type": "boolean"
+        },
+        "CanExportRemotely": {
+          "type": "boolean"
+        },
+        "CanExportPersonalMediaRemotely": {
+          "type": "boolean"
+        },
+        "CanPublishItems": {
+          "type": "boolean"
+        }
+      }
+    },
+    "LogPermissions": {
+      "type": "object",
+      "properties": {
+        "CanEditLog": {
+          "type": "boolean"
+        },
+        "CanLockUnlockItems": {
+          "type": "boolean"
+        },
+        "CanMassEditLog": {
+          "type": "boolean"
+        },
+        "CanMassEditLogRemotely": {
+          "type": "boolean"
+        },
+        "CanEditOnAirHourAnywhere": {
+          "type": "boolean"
+        },
+        "CanRecordVoiceLinks": {
+          "type": "boolean"
+        },
+        "RestrictStationAccess": {
+          "type": "boolean"
+        },
+        "AllowedStationHours": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/AllowedStationHoursInfo"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "ReportsPermissions": {
+      "type": "object",
+      "properties": {
+        "CanRunPlayLogReports": {
+          "type": "boolean"
+        }
+      }
+    },
+    "StationConnectionsPermissions": {
+      "type": "object",
+      "properties": {
+        "CanStartStopEncoders": {
+          "type": "boolean"
+        },
+        "CanUpdateNowPlayingInformation": {
+          "type": "boolean"
+        }
+      }
+    },
+    "NewsPermissions": {
+      "type": "object",
+      "properties": {
+        "CanUseMyriadNews": {
+          "type": "boolean"
+        },
+        "CanEditStories": {
+          "type": "boolean"
+        },
+        "CanApproveStories": {
+          "type": "boolean"
+        },
+        "CanEditSettings": {
+          "type": "boolean"
+        }
+      }
+    },
+    "Permission": {
+      "type": "object",
+      "properties": {
+        "EntityReference": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "AppAreaId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "PermissionId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "Data": {
+          "type": "string"
+        },
+        "IsInheritedFromSecurityGroup": {
+          "type": "boolean"
+        }
+      }
+    },
+    "XElement": {
+      "type": "object",
+      "properties": {
+        "FirstAttribute": {
+          "$ref": "#/definitions/XAttribute",
+          "readOnly": true
+        },
+        "HasAttributes": {
+          "type": "boolean",
+          "readOnly": true
+        },
+        "HasElements": {
+          "type": "boolean",
+          "readOnly": true
+        },
+        "IsEmpty": {
+          "type": "boolean",
+          "readOnly": true
+        },
+        "LastAttribute": {
+          "$ref": "#/definitions/XAttribute",
+          "readOnly": true
+        },
+        "Name": {
+          "type": "object"
+        },
+        "NodeType": {
+          "enum": [
+            "None",
+            "Element",
+            "Attribute",
+            "Text",
+            "CDATA",
+            "EntityReference",
+            "Entity",
+            "ProcessingInstruction",
+            "Comment",
+            "Document",
+            "DocumentType",
+            "DocumentFragment",
+            "Notation",
+            "Whitespace",
+            "SignificantWhitespace",
+            "EndElement",
+            "EndEntity",
+            "XmlDeclaration"
+          ],
+          "type": "string",
+          "readOnly": true
+        },
+        "Value": {
+          "type": "string"
+        },
+        "FirstNode": {
+          "$ref": "#/definitions/XNode",
+          "readOnly": true
+        },
+        "LastNode": {
+          "$ref": "#/definitions/XNode",
+          "readOnly": true
+        },
+        "NextNode": {
+          "$ref": "#/definitions/XNode",
+          "readOnly": true
+        },
+        "PreviousNode": {
+          "$ref": "#/definitions/XNode",
+          "readOnly": true
+        },
+        "BaseUri": {
+          "type": "string",
+          "readOnly": true
+        },
+        "Document": {
+          "$ref": "#/definitions/XDocument",
+          "readOnly": true
+        },
+        "Parent": {
+          "$ref": "#/definitions/XElement",
+          "readOnly": true
+        }
+      }
+    },
+    "WriteableMediaRange": {
+      "type": "object",
+      "properties": {
+        "StartMediaId": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "EndMediaId": {
+          "format": "int32",
+          "type": "integer"
+        }
+      }
+    },
+    "AllowedStationHoursInfo": {
+      "type": "object",
+      "properties": {
+        "st": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "en": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "Summary": {
+          "type": "string",
+          "readOnly": true
+        }
+      }
+    },
+    "XAttribute": {
+      "type": "object",
+      "properties": {
+        "IsNamespaceDeclaration": {
+          "type": "boolean",
+          "readOnly": true
+        },
+        "Name": {
+          "type": "object",
+          "readOnly": true
+        },
+        "NextAttribute": {
+          "$ref": "#/definitions/XAttribute",
+          "readOnly": true
+        },
+        "NodeType": {
+          "enum": [
+            "None",
+            "Element",
+            "Attribute",
+            "Text",
+            "CDATA",
+            "EntityReference",
+            "Entity",
+            "ProcessingInstruction",
+            "Comment",
+            "Document",
+            "DocumentType",
+            "DocumentFragment",
+            "Notation",
+            "Whitespace",
+            "SignificantWhitespace",
+            "EndElement",
+            "EndEntity",
+            "XmlDeclaration"
+          ],
+          "type": "string",
+          "readOnly": true
+        },
+        "PreviousAttribute": {
+          "$ref": "#/definitions/XAttribute",
+          "readOnly": true
+        },
+        "Value": {
+          "type": "string"
+        },
+        "BaseUri": {
+          "type": "string",
+          "readOnly": true
+        },
+        "Document": {
+          "$ref": "#/definitions/XDocument",
+          "readOnly": true
+        },
+        "Parent": {
+          "$ref": "#/definitions/XElement",
+          "readOnly": true
+        }
+      }
+    },
+    "XNode": {
+      "type": "object",
+      "properties": {
+        "NextNode": {
+          "$ref": "#/definitions/XNode",
+          "readOnly": true
+        },
+        "PreviousNode": {
+          "$ref": "#/definitions/XNode",
+          "readOnly": true
+        },
+        "BaseUri": {
+          "type": "string",
+          "readOnly": true
+        },
+        "Document": {
+          "$ref": "#/definitions/XDocument",
+          "readOnly": true
+        },
+        "NodeType": {
+          "enum": [
+            "None",
+            "Element",
+            "Attribute",
+            "Text",
+            "CDATA",
+            "EntityReference",
+            "Entity",
+            "ProcessingInstruction",
+            "Comment",
+            "Document",
+            "DocumentType",
+            "DocumentFragment",
+            "Notation",
+            "Whitespace",
+            "SignificantWhitespace",
+            "EndElement",
+            "EndEntity",
+            "XmlDeclaration"
+          ],
+          "type": "string",
+          "readOnly": true
+        },
+        "Parent": {
+          "$ref": "#/definitions/XElement",
+          "readOnly": true
+        }
+      }
+    },
+    "XDocument": {
+      "type": "object",
+      "properties": {
+        "Declaration": {
+          "$ref": "#/definitions/XDeclaration"
+        },
+        "DocumentType": {
+          "$ref": "#/definitions/XDocumentType",
+          "readOnly": true
+        },
+        "NodeType": {
+          "enum": [
+            "None",
+            "Element",
+            "Attribute",
+            "Text",
+            "CDATA",
+            "EntityReference",
+            "Entity",
+            "ProcessingInstruction",
+            "Comment",
+            "Document",
+            "DocumentType",
+            "DocumentFragment",
+            "Notation",
+            "Whitespace",
+            "SignificantWhitespace",
+            "EndElement",
+            "EndEntity",
+            "XmlDeclaration"
+          ],
+          "type": "string",
+          "readOnly": true
+        },
+        "Root": {
+          "$ref": "#/definitions/XElement",
+          "readOnly": true
+        },
+        "FirstNode": {
+          "$ref": "#/definitions/XNode",
+          "readOnly": true
+        },
+        "LastNode": {
+          "$ref": "#/definitions/XNode",
+          "readOnly": true
+        },
+        "NextNode": {
+          "$ref": "#/definitions/XNode",
+          "readOnly": true
+        },
+        "PreviousNode": {
+          "$ref": "#/definitions/XNode",
+          "readOnly": true
+        },
+        "BaseUri": {
+          "type": "string",
+          "readOnly": true
+        },
+        "Document": {
+          "$ref": "#/definitions/XDocument",
+          "readOnly": true
+        },
+        "Parent": {
+          "$ref": "#/definitions/XElement",
+          "readOnly": true
+        }
+      }
+    },
+    "XDeclaration": {
+      "type": "object",
+      "properties": {
+        "Encoding": {
+          "type": "string"
+        },
+        "Standalone": {
+          "type": "string"
+        },
+        "Version": {
+          "type": "string"
+        }
+      }
+    },
+    "XDocumentType": {
+      "type": "object",
+      "properties": {
+        "InternalSubset": {
+          "type": "string"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "NodeType": {
+          "enum": [
+            "None",
+            "Element",
+            "Attribute",
+            "Text",
+            "CDATA",
+            "EntityReference",
+            "Entity",
+            "ProcessingInstruction",
+            "Comment",
+            "Document",
+            "DocumentType",
+            "DocumentFragment",
+            "Notation",
+            "Whitespace",
+            "SignificantWhitespace",
+            "EndElement",
+            "EndEntity",
+            "XmlDeclaration"
+          ],
+          "type": "string",
+          "readOnly": true
+        },
+        "PublicId": {
+          "type": "string"
+        },
+        "SystemId": {
+          "type": "string"
+        },
+        "NextNode": {
+          "$ref": "#/definitions/XNode",
+          "readOnly": true
+        },
+        "PreviousNode": {
+          "$ref": "#/definitions/XNode",
+          "readOnly": true
+        },
+        "BaseUri": {
+          "type": "string",
+          "readOnly": true
+        },
+        "Document": {
+          "$ref": "#/definitions/XDocument",
+          "readOnly": true
+        },
+        "Parent": {
+          "$ref": "#/definitions/XElement",
+          "readOnly": true
+        }
+      }
+    }
+  },
+  "securityDefinitions": {
+    "X-API-Key": {
+      "type": "apiKey",
+      "description": "API Key for accessing secure APIs",
+      "name": "X-API-Key",
+      "in": "header"
+    }
+  }
+}
