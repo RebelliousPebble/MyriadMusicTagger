@@ -15,6 +15,7 @@ namespace MyriadMusicTagger.Core
         private MyriadApiService? _apiService;
         private ItemProcessingService? _itemProcessingService;
         private BatchProcessingService? _batchProcessingService;
+        private CdRippingService? _cdRippingService;
         private readonly RecentItemsManager _recentItemsManager;
 
         public ApplicationManager()
@@ -47,6 +48,11 @@ namespace MyriadMusicTagger.Core
         /// Gets the batch processing service instance
         /// </summary>
         public BatchProcessingService BatchProcessingService => _batchProcessingService ?? throw new InvalidOperationException("Settings must be applied first");
+
+        /// <summary>
+        /// Gets the CD ripping service instance
+        /// </summary>
+        public CdRippingService CdRippingService => _cdRippingService ?? throw new InvalidOperationException("Settings must be applied first");
 
         /// <summary>
         /// Initializes the application with settings
@@ -87,6 +93,7 @@ namespace MyriadMusicTagger.Core
             _apiService = new MyriadApiService(settings);
             _itemProcessingService = new ItemProcessingService(_apiService);
             _batchProcessingService = new BatchProcessingService(_itemProcessingService);
+            _cdRippingService = new CdRippingService(_apiService, settings);
         }
     }
 }

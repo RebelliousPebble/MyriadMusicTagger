@@ -13,6 +13,7 @@ namespace MyriadMusicTagger.UI.Controllers
         private SingleItemController? _singleItemController;
         private BatchProcessingController? _batchProcessingController;
         private RecentItemsController? _recentItemsController;
+        private CdRippingController? _cdRippingController;
 
         public MainApplicationController(ApplicationManager applicationManager)
         {
@@ -27,6 +28,7 @@ namespace MyriadMusicTagger.UI.Controllers
             _singleItemController = new SingleItemController(_applicationManager.ItemProcessingService, _applicationManager.RecentItemsManager);
             _batchProcessingController = new BatchProcessingController(_applicationManager.BatchProcessingService, _applicationManager.RecentItemsManager);
             _recentItemsController = new RecentItemsController(_applicationManager.ItemProcessingService, _applicationManager.RecentItemsManager);
+            _cdRippingController = new CdRippingController(_applicationManager.CdRippingService);
         }
 
         /// <summary>
@@ -61,7 +63,9 @@ namespace MyriadMusicTagger.UI.Controllers
                     new MenuItem("_Single Item", "", () => ProcessSingleItem(), null, null, Key.S | Key.CtrlMask),
                     new MenuItem("_Batch of Items", "", () => ProcessBatchItems(), null, null, Key.B | Key.CtrlMask),
                     new MenuItem("_CSV File", "", () => ProcessCsvFile(), null, null, Key.C | Key.CtrlMask),
-                    new MenuItem("_Recent Items", "", () => ProcessRecentItems(), null, null, Key.R | Key.CtrlMask)
+                    new MenuItem("_Recent Items", "", () => ProcessRecentItems(), null, null, Key.R | Key.CtrlMask),
+                    new MenuItem("", "", null), // Separator
+                    new MenuItem("Rip _CD", "", () => RipCd(), null, null, Key.D | Key.CtrlMask)
                 }),
                 new MenuBarItem("_Help", new MenuItem[]
                 {
@@ -115,6 +119,14 @@ namespace MyriadMusicTagger.UI.Controllers
         private void ProcessRecentItems()
         {
             _recentItemsController?.ShowRecentItemsDialog();
+        }
+
+        /// <summary>
+        /// Shows the CD ripping dialog
+        /// </summary>
+        private void RipCd()
+        {
+            _cdRippingController?.ShowCdRippingDialog();
         }
 
         /// <summary>
