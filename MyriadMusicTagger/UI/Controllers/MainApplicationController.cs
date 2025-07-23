@@ -14,6 +14,7 @@ namespace MyriadMusicTagger.UI.Controllers
         private BatchProcessingController? _batchProcessingController;
         private RecentItemsController? _recentItemsController;
         private CdRippingController? _cdRippingController;
+        private DuplicateDetectionController? _duplicateDetectionController;
 
         public MainApplicationController(ApplicationManager applicationManager)
         {
@@ -29,6 +30,7 @@ namespace MyriadMusicTagger.UI.Controllers
             _batchProcessingController = new BatchProcessingController(_applicationManager.BatchProcessingService, _applicationManager.RecentItemsManager);
             _recentItemsController = new RecentItemsController(_applicationManager.ItemProcessingService, _applicationManager.RecentItemsManager);
             _cdRippingController = new CdRippingController(_applicationManager.CdRippingService);
+            _duplicateDetectionController = new DuplicateDetectionController(_applicationManager.DuplicateDetectionService);
         }
 
         /// <summary>
@@ -65,7 +67,8 @@ namespace MyriadMusicTagger.UI.Controllers
                     new MenuItem("_CSV File", "", () => ProcessCsvFile(), null, null, Key.C | Key.CtrlMask),
                     new MenuItem("_Recent Items", "", () => ProcessRecentItems(), null, null, Key.R | Key.CtrlMask),
                     new MenuItem("", "", null), // Separator
-                    new MenuItem("Rip _CD", "", () => RipCd(), null, null, Key.D | Key.CtrlMask)
+                    new MenuItem("Rip _CD", "", () => RipCd(), null, null, Key.D | Key.CtrlMask),
+                    new MenuItem("Find _Duplicates", "", () => FindDuplicates(), null, null, Key.F | Key.CtrlMask)
                 }),
                 new MenuBarItem("_Help", new MenuItem[]
                 {
@@ -127,6 +130,14 @@ namespace MyriadMusicTagger.UI.Controllers
         private void RipCd()
         {
             _cdRippingController?.ShowCdRippingDialog();
+        }
+
+        /// <summary>
+        /// Shows the duplicate detection dialog
+        /// </summary>
+        private void FindDuplicates()
+        {
+            _duplicateDetectionController?.ShowDuplicateDetectionDialog();
         }
 
         /// <summary>

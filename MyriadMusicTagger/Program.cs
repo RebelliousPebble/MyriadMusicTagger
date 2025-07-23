@@ -24,7 +24,7 @@ public class Program
         // Configure logging
         using var log = new LoggerConfiguration()
             .WriteTo.File("log.txt")
-            .MinimumLevel.Information()
+            .MinimumLevel.Debug()
             .CreateLogger();
         Log.Logger = log;
         

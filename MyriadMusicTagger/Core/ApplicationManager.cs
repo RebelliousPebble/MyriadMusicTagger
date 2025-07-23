@@ -16,6 +16,7 @@ namespace MyriadMusicTagger.Core
         private ItemProcessingService? _itemProcessingService;
         private BatchProcessingService? _batchProcessingService;
         private CdRippingService? _cdRippingService;
+        private DuplicateDetectionService? _duplicateDetectionService;
         private readonly RecentItemsManager _recentItemsManager;
 
         public ApplicationManager()
@@ -53,6 +54,11 @@ namespace MyriadMusicTagger.Core
         /// Gets the CD ripping service instance
         /// </summary>
         public CdRippingService CdRippingService => _cdRippingService ?? throw new InvalidOperationException("Settings must be applied first");
+
+        /// <summary>
+        /// Gets the duplicate detection service instance
+        /// </summary>
+        public DuplicateDetectionService DuplicateDetectionService => _duplicateDetectionService ?? throw new InvalidOperationException("Settings must be applied first");
 
         /// <summary>
         /// Initializes the application with settings
@@ -94,6 +100,7 @@ namespace MyriadMusicTagger.Core
             _itemProcessingService = new ItemProcessingService(_apiService);
             _batchProcessingService = new BatchProcessingService(_itemProcessingService);
             _cdRippingService = new CdRippingService(_apiService, settings);
+            _duplicateDetectionService = new DuplicateDetectionService(settings);
         }
     }
 }
