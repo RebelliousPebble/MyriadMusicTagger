@@ -309,15 +309,6 @@ namespace MyriadMusicTagger.UI.Controllers
                 Table = dataTable
             };
 
-            // Configure table to hide internal columns from display
-            if (dataTable.Columns.Count > 7)
-            {
-                // Make internal columns invisible by renaming them to empty
-                dataTable.Columns[7].ColumnName = ""; // IsGroupHeader 
-                dataTable.Columns[8].ColumnName = ""; // GroupId
-                dataTable.Columns[9].ColumnName = ""; // MediaId
-            }
-
             // Handle key events - TableView should handle this much better
             tableView.KeyDown += (e) =>
             {
@@ -408,26 +399,32 @@ namespace MyriadMusicTagger.UI.Controllers
             if (selectedRow < 0 || selectedRow >= tableView.Table.Rows.Count) return;
             
             var row = tableView.Table.Rows[selectedRow];
-            var isGroupHeader = (bool)row["IsGroupHeader"];
+            
+            // Check if this is a group header (has expand/collapse icon in Group column)
+            var groupColumnValue = row["Group"]?.ToString() ?? "";
+            var isGroupHeader = groupColumnValue.Contains("▼") || groupColumnValue.Contains("▶");
             
             if (!isGroupHeader)
             {
-                var mediaId = (int)row["MediaId"];
-                
-                // Find the song in our data
-                foreach (var group in _duplicateGroups)
+                // This is a song row - find the song by ID
+                var idColumnValue = row["ID"]?.ToString() ?? "";
+                if (int.TryParse(idColumnValue, out int mediaId) && mediaId > 0)
                 {
-                    var song = group.Songs.FirstOrDefault(s => s.MediaId == mediaId);
-                    if (song != null)
+                    // Find the song in our data
+                    foreach (var group in _duplicateGroups)
                     {
-                        song.IsSelected = !song.IsSelected;
-                        
-                        // Update the Del column
-                        row["Del"] = song.IsSelected ? "[X]" : "[ ]";
-                        
-                        // Refresh the table
-                        tableView.SetNeedsDisplay();
-                        break;
+                        var song = group.Songs.FirstOrDefault(s => s.MediaId == mediaId);
+                        if (song != null)
+                        {
+                            song.IsSelected = !song.IsSelected;
+                            
+                            // Update the Del column
+                            row["Del"] = song.IsSelected ? "[X]" : "[ ]";
+                            
+                            // Refresh the table
+                            tableView.SetNeedsDisplay();
+                            break;
+                        }
                     }
                 }
             }
@@ -444,25 +441,32 @@ namespace MyriadMusicTagger.UI.Controllers
             if (selectedRow < 0 || selectedRow >= tableView.Table.Rows.Count) return;
             
             var row = tableView.Table.Rows[selectedRow];
-            var isGroupHeader = (bool)row["IsGroupHeader"];
+            
+            // Check if this is a group header (has expand/collapse icon in Group column)
+            var groupColumnValue = row["Group"].ToString() ?? "";
+            var isGroupHeader = groupColumnValue.Contains("▼") || groupColumnValue.Contains("▶");
             
             if (isGroupHeader)
             {
-                var groupId = (int)row["GroupId"];
-                var group = _duplicateGroups.FirstOrDefault(g => g.GroupId == groupId);
-                
-                if (group != null)
+                // Extract group ID from the group column text (e.g., "▼ Group 123")
+                var parts = groupColumnValue.Split(' ');
+                if (parts.Length >= 3 && int.TryParse(parts[2], out int groupId))
                 {
-                    // Find the group in our table rows and toggle expansion
-                    var groupRow = _tableRows.FirstOrDefault(r => r.IsGroupHeader && r.GroupId == groupId);
-                    if (groupRow != null)
+                    var group = _duplicateGroups.FirstOrDefault(g => g.GroupId == groupId);
+                    
+                    if (group != null)
                     {
-                        groupRow.IsExpanded = !groupRow.IsExpanded;
-                        
-                        // Rebuild the table data to show/hide child rows
-                        var newDataTable = CreateTableData();
-                        tableView.Table = newDataTable;
-                        tableView.SetNeedsDisplay();
+                        // Find the group in our table rows and toggle expansion
+                        var groupRow = _tableRows.FirstOrDefault(r => r.IsGroupHeader && r.GroupId == groupId);
+                        if (groupRow != null)
+                        {
+                            groupRow.IsExpanded = !groupRow.IsExpanded;
+                            
+                            // Rebuild the table data to show/hide child rows
+                            var newDataTable = CreateTableData();
+                            tableView.Table = newDataTable;
+                            tableView.SetNeedsDisplay();
+                        }
                     }
                 }
             }
@@ -579,9 +583,9 @@ namespace MyriadMusicTagger.UI.Controllers
                                 "This means no copies will remain in your database.\\n\\n";
             }
             
-            confirmMessage += $"Groups with songs remaining: {groupsWithRemaining}\\n" +
-                            $"Groups completely deleted: {groupsCompletelyDeleted}\\n\\n" +
-                            "This action cannot be undone!\\n\\n" +
+            confirmMessage += $"Groups with songs remaining: {groupsWithRemaining}\n" +
+                            $"Groups completely deleted: {groupsCompletelyDeleted}\n\n" +
+                            "This action cannot be undone!\n\n" +
                             "Do you want to proceed?";
             
             var result = MessageBox.Query("Confirm Deletion", confirmMessage, "Yes", "No");
@@ -691,11 +695,6 @@ namespace MyriadMusicTagger.UI.Controllers
             dataTable.Columns.Add("Artist", typeof(string));
             dataTable.Columns.Add("Duration", typeof(string));
             dataTable.Columns.Add("Categories", typeof(string));
-            
-            // Keep internal columns but make them hidden-width
-            dataTable.Columns.Add("IsGroupHeader", typeof(bool));
-            dataTable.Columns.Add("GroupId", typeof(int));
-            dataTable.Columns.Add("MediaId", typeof(int));
 
             foreach (var group in _duplicateGroups)
             {
@@ -716,9 +715,6 @@ namespace MyriadMusicTagger.UI.Controllers
                 groupRow["Artist"] = $"({group.Songs.Count} duplicates)";
                 groupRow["Duration"] = "";
                 groupRow["Categories"] = "";
-                groupRow["IsGroupHeader"] = true;
-                groupRow["GroupId"] = group.GroupId;
-                groupRow["MediaId"] = 0;
                 dataTable.Rows.Add(groupRow);
 
                 // Only add individual song rows if the group is expanded
@@ -734,9 +730,6 @@ namespace MyriadMusicTagger.UI.Controllers
                         songRow["Artist"] = song.Artist;
                         songRow["Duration"] = song.Duration;
                         songRow["Categories"] = string.Join(", ", song.Categories);
-                        songRow["IsGroupHeader"] = false;
-                        songRow["GroupId"] = group.GroupId;
-                        songRow["MediaId"] = song.MediaId;
                         dataTable.Rows.Add(songRow);
                     }
                 }
