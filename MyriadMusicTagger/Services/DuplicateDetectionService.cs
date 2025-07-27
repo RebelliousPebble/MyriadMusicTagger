@@ -504,11 +504,13 @@ namespace MyriadMusicTagger.Services
         /// <summary>
         /// Deletes the specified media items from the Myriad system
         /// </summary>
-        public async Task<bool> DeleteMediaItemsAsync(List<int> mediaIds)
+        public async Task<bool> DeleteMediaItemsAsync(List<int> mediaIds, IProgress<float>? progress = null)
         {
             Log.Information("Deleting {Count} media items", mediaIds.Count);
             
             var allSuccessful = true;
+            var totalItems = mediaIds.Count;
+            var completedItems = 0;
             
             foreach (var mediaId in mediaIds)
             {
@@ -530,11 +532,16 @@ namespace MyriadMusicTagger.Services
                     {
                         Log.Debug("Successfully deleted media item {MediaId}", mediaId);
                     }
+                    
+                    completedItems++;
+                    progress?.Report((float)completedItems / totalItems);
                 }
                 catch (Exception ex)
                 {
                     Log.Error(ex, "Exception while deleting media item {MediaId}", mediaId);
                     allSuccessful = false;
+                    completedItems++;
+                    progress?.Report((float)completedItems / totalItems);
                 }
             }
 

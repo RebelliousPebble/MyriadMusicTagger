@@ -1,6 +1,7 @@
 using Terminal.Gui;
 using MyriadMusicTagger.Services;
 using Serilog;
+using System.Data;
 
 namespace MyriadMusicTagger.UI.Controllers
 {
@@ -137,6 +138,9 @@ namespace MyriadMusicTagger.UI.Controllers
 
             foreach (var group in groups)
             {
+                // Apply auto-selection logic for tracks within 5 seconds of each other
+                ApplyAutoSelectionLogic(group);
+
                 // Add group header row
                 var groupHeader = new DuplicateTableRow
                 {
@@ -172,11 +176,104 @@ namespace MyriadMusicTagger.UI.Controllers
         }
 
         /// <summary>
+        /// Applies auto-selection logic for tracks within 5 seconds of each other.
+        /// Keeps only the track with the highest cart number (MediaId), marks others for deletion.
+        /// </summary>
+        private void ApplyAutoSelectionLogic(DuplicateGroup group)
+        {
+            if (group.Songs.Count < 2) return;
+
+            // Parse durations and find tracks within 5 seconds of each other
+            var songsWithDuration = group.Songs
+                .Select(song => new { Song = song, DurationSeconds = ParseDurationToSeconds(song.Duration) })
+                .Where(x => x.DurationSeconds > 0) // Only include songs with valid durations
+                .ToList();
+
+            if (songsWithDuration.Count < 2) return;
+
+            // Group songs by duration similarity (within 5 seconds)
+            var durationGroups = new List<List<DuplicateCandidate>>();
+            
+            foreach (var songData in songsWithDuration)
+            {
+                var existingGroup = durationGroups.FirstOrDefault(dg =>
+                    dg.Any(s => Math.Abs(ParseDurationToSeconds(s.Duration) - songData.DurationSeconds) <= 5));
+
+                if (existingGroup != null)
+                {
+                    existingGroup.Add(songData.Song);
+                }
+                else
+                {
+                    durationGroups.Add(new List<DuplicateCandidate> { songData.Song });
+                }
+            }
+
+            // For each duration group with multiple songs, keep only the one with highest cart number
+            foreach (var durationGroup in durationGroups.Where(dg => dg.Count > 1))
+            {
+                // Sort by MediaId (cart number) descending, keep the first (highest)
+                var sortedByCartNumber = durationGroup.OrderByDescending(s => s.MediaId).ToList();
+                var keepSong = sortedByCartNumber.First();
+
+                // Mark all others for deletion
+                foreach (var song in durationGroup.Where(s => s.MediaId != keepSong.MediaId))
+                {
+                    song.IsSelected = true; // Mark for deletion
+                }
+
+                Log.Information("Auto-selected {Count} tracks for deletion in group {GroupId}, keeping cart {CartNumber}",
+                    durationGroup.Count - 1, group.GroupId, keepSong.MediaId);
+            }
+        }
+
+        /// <summary>
+        /// Parses duration string (e.g., "00:03:45.123456") to total seconds
+        /// </summary>
+        private double ParseDurationToSeconds(string duration)
+        {
+            if (string.IsNullOrEmpty(duration)) return 0;
+
+            try
+            {
+                // Handle formats like "00:03:45.123456" or "00:03:45"
+                var parts = duration.Split(':');
+                if (parts.Length < 2) return 0;
+
+                double totalSeconds = 0;
+
+                // Hours (if present)
+                if (parts.Length >= 3)
+                {
+                    if (int.TryParse(parts[0], out int hours))
+                        totalSeconds += hours * 3600;
+                }
+
+                // Minutes
+                var minuteIndex = parts.Length >= 3 ? 1 : 0;
+                if (int.TryParse(parts[minuteIndex], out int minutes))
+                    totalSeconds += minutes * 60;
+
+                // Seconds (with possible decimal)
+                var secondIndex = parts.Length >= 3 ? 2 : 1;
+                if (double.TryParse(parts[secondIndex], out double seconds))
+                    totalSeconds += seconds;
+
+                return totalSeconds;
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("Failed to parse duration '{Duration}': {Error}", duration, ex.Message);
+                return 0;
+            }
+        }
+
+        /// <summary>
         /// Shows the main duplicate table dialog inspired by Myriad's interface
         /// </summary>
         private void ShowDuplicateTableDialog()
         {
-            var dialog = new Dialog("Duplicate Songs Found", 120, 42);
+            var dialog = new Dialog("Duplicate Songs Found", 140, 45);
             
             // Header with summary
             var summaryLabel = new Label($"Found {_duplicateGroups.Count} groups with {_duplicateGroups.Sum(g => g.Songs.Count)} total duplicate songs.")
@@ -185,142 +282,467 @@ namespace MyriadMusicTagger.UI.Controllers
             };
 
             // Enhanced instructions
-            var instructionLabel1 = new Label("HOW TO USE: Each group contains songs that appear to be duplicates of each other.")
+            var instructionLabel1 = new Label("HOW TO USE: Navigate with arrow keys, SPACE to toggle delete checkboxes, ENTER to expand/collapse groups")
             {
                 X = 1, Y = 3, Width = Dim.Fill() - 2, ColorScheme = Colors.TopLevel
             };
             
-            var instructionLabel2 = new Label("• CHECK songs you want to DELETE (leave at least one unchecked to keep)")
+            var instructionLabel2 = new Label("• CHECK songs you want to DELETE (leave at least one unchecked per group to keep)")
             {
                 X = 1, Y = 4, Width = Dim.Fill() - 2
             };
-            
-            var instructionLabel3 = new Label("• Use SPACE or MOUSE CLICK to check/uncheck, ENTER to expand/collapse groups")
+
+            var instructionLabel3 = new Label("• AUTO-SELECTION: Tracks within 5 seconds of each other are auto-selected (keeping highest cart number)")
             {
                 X = 1, Y = 5, Width = Dim.Fill() - 2
             };
+
+            // Create DataTable for the TableView
+            var dataTable = CreateTableData();
             
-            var instructionLabel4 = new Label("• Use buttons below for batch operations, then click 'Delete Selected' when ready")
+            // Create the TableView - this is the proper table component
+            var tableView = new TableView()
             {
-                X = 1, Y = 6, Width = Dim.Fill() - 2
+                X = 1, Y = 7, Width = Dim.Fill() - 2, Height = Dim.Fill() - 13,
+                FullRowSelect = true,
+                MultiSelect = false,
+                Table = dataTable
             };
 
-            // Create a custom table view with proper height to leave room for buttons
-            var tableView = new ListView()
+            // Configure table to hide internal columns from display
+            if (dataTable.Columns.Count > 7)
             {
-                X = 1, Y = 8, Width = Dim.Fill() - 2, Height = Dim.Fill() - 14
-            };
+                // Make internal columns invisible by renaming them to empty
+                dataTable.Columns[7].ColumnName = ""; // IsGroupHeader 
+                dataTable.Columns[8].ColumnName = ""; // GroupId
+                dataTable.Columns[9].ColumnName = ""; // MediaId
+            }
 
-            // Load table data
-            LoadTableData(tableView);
+            // Handle key events - TableView should handle this much better
+            tableView.KeyDown += (e) =>
+            {
+                if (e.KeyEvent.Key == Key.Space)
+                {
+                    ToggleRowSelectionInTable(tableView);
+                    e.Handled = true;
+                }
+                else if (e.KeyEvent.Key == Key.Enter)
+                {
+                    ToggleGroupExpansionInTable(tableView);
+                    e.Handled = true;
+                }
+            };
 
             // Add a separator line before buttons
             var separatorLabel = new Label("─".PadRight(118, '─'))
             {
-                X = 1, Y = Pos.Bottom(dialog) - 8, Width = Dim.Fill() - 2
+                X = 1, Y = 35, Width = Dim.Fill() - 2
             };
 
-            // Action buttons - positioned at bottom with proper spacing
+            // Action buttons - positioned with more spacing from bottom
             var expandAllButton = new Button("Expand All")
             {
-                X = 1, Y = Pos.Bottom(dialog) - 6
+                X = 1, Y = 37
             };
-            expandAllButton.Clicked += () => ToggleAllGroups(true, tableView);
+            expandAllButton.Clicked += () => ToggleAllGroupsInTable(true, tableView);
 
             var collapseAllButton = new Button("Collapse All")
             {
-                X = 15, Y = Pos.Bottom(dialog) - 6
+                X = 15, Y = 37
             };
-            collapseAllButton.Clicked += () => ToggleAllGroups(false, tableView);
+            collapseAllButton.Clicked += () => ToggleAllGroupsInTable(false, tableView);
+
+            var autoCollapseButton = new Button("Auto-Collapse")
+            {
+                X = 30, Y = 37
+            };
+            autoCollapseButton.Clicked += () => AutoCollapseResolvedGroups(tableView);
 
             var selectAllButton = new Button("Select All")
             {
-                X = 30, Y = Pos.Bottom(dialog) - 6
+                X = 48, Y = 37
             };
-            selectAllButton.Clicked += () => SelectAllSongs(true, tableView);
+            selectAllButton.Clicked += () => SelectAllSongsInTable(true, tableView);
 
             var selectNoneButton = new Button("Select None")
             {
-                X = 44, Y = Pos.Bottom(dialog) - 6
+                X = 62, Y = 37
             };
-            selectNoneButton.Clicked += () => SelectAllSongs(false, tableView);
+            selectNoneButton.Clicked += () => SelectAllSongsInTable(false, tableView);
 
             // Warning label above delete button
             var warningLabel = new Label("⚠ WARNING: Deletion cannot be undone!")
             {
-                X = 60, Y = Pos.Bottom(dialog) - 4,
+                X = 60, Y = 40,
                 ColorScheme = Colors.Error
             };
 
             var deleteSelectedButton = new Button("Delete Selected")
             {
-                X = 60, Y = Pos.Bottom(dialog) - 2
+                X = 60, Y = 42
             };
-            deleteSelectedButton.Clicked += () => DeleteSelectedDuplicates(tableView);
+            deleteSelectedButton.Clicked += () => DeleteSelectedDuplicatesFromTable(tableView);
 
             var closeButton = new Button("Close")
             {
-                X = Pos.Right(dialog) - 10, Y = Pos.Bottom(dialog) - 2,
+                X = 105, Y = 42,
                 IsDefault = true
             };
             closeButton.Clicked += () => Application.RequestStop(dialog);
 
-            // Handle key events for table interaction - using KeyDown for better control
-            tableView.KeyDown += (e) =>
-            {
-                if (e.KeyEvent.Key == Key.Space)
-                {
-                    ToggleSelectedRow(tableView);
-                    e.Handled = true;
-                }
-                else if (e.KeyEvent.Key == Key.Enter)
-                {
-                    ToggleGroupExpansion(tableView);
-                    e.Handled = true;
-                }
-            };
-
-            // Handle mouse clicks for selection
-            tableView.MouseClick += (e) =>
-            {
-                if (e.MouseEvent.Flags == MouseFlags.Button1Clicked)
-                {
-                    var clickPosition = e.MouseEvent.Y;
-                    var visibleRows = GetVisibleRows();
-                    
-                    // Adjust for ListView content offset and check bounds
-                    if (clickPosition >= 0 && clickPosition < visibleRows.Count)
-                    {
-                        var row = visibleRows[clickPosition];
-                        
-                        // Only toggle selection for data rows (not group headers)
-                        if (!row.IsGroupHeader && row.Song != null)
-                        {
-                            // Set the ListView's selected item to match the clicked row
-                            tableView.SelectedItem = clickPosition;
-                            
-                            // Toggle the selection
-                            row.Song.IsSelected = !row.Song.IsSelected;
-                            row.IsSelected = row.Song.IsSelected;
-                            LoadTableData(tableView);
-                            tableView.SelectedItem = clickPosition; // Maintain selection
-                        }
-                        else if (row.IsGroupHeader)
-                        {
-                            // If it's a group header, toggle group expansion
-                            tableView.SelectedItem = clickPosition;
-                            ToggleGroupExpansion(tableView);
-                        }
-                    }
-                    e.Handled = true;
-                }
-            };
-
-            dialog.Add(summaryLabel, instructionLabel1, instructionLabel2, instructionLabel3, instructionLabel4, tableView, 
-                      separatorLabel, expandAllButton, collapseAllButton, selectAllButton, selectNoneButton, 
+            dialog.Add(summaryLabel, instructionLabel1, instructionLabel2, instructionLabel3, tableView, 
+                      separatorLabel, expandAllButton, collapseAllButton, autoCollapseButton, selectAllButton, selectNoneButton, 
                       warningLabel, deleteSelectedButton, closeButton);
 
             Application.Run(dialog);
+        }
+
+        /// <summary>
+        /// Toggles row selection in TableView
+        /// </summary>
+        private void ToggleRowSelectionInTable(TableView tableView)
+        {
+            if (tableView.Table == null) return;
+            
+            var selectedRow = tableView.SelectedRow;
+            if (selectedRow < 0 || selectedRow >= tableView.Table.Rows.Count) return;
+            
+            var row = tableView.Table.Rows[selectedRow];
+            var isGroupHeader = (bool)row["IsGroupHeader"];
+            
+            if (!isGroupHeader)
+            {
+                var mediaId = (int)row["MediaId"];
+                
+                // Find the song in our data
+                foreach (var group in _duplicateGroups)
+                {
+                    var song = group.Songs.FirstOrDefault(s => s.MediaId == mediaId);
+                    if (song != null)
+                    {
+                        song.IsSelected = !song.IsSelected;
+                        
+                        // Update the Del column
+                        row["Del"] = song.IsSelected ? "[X]" : "[ ]";
+                        
+                        // Refresh the table
+                        tableView.SetNeedsDisplay();
+                        break;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Toggles group expansion in TableView
+        /// </summary>
+        private void ToggleGroupExpansionInTable(TableView tableView)
+        {
+            if (tableView.Table == null) return;
+            
+            var selectedRow = tableView.SelectedRow;
+            if (selectedRow < 0 || selectedRow >= tableView.Table.Rows.Count) return;
+            
+            var row = tableView.Table.Rows[selectedRow];
+            var isGroupHeader = (bool)row["IsGroupHeader"];
+            
+            if (isGroupHeader)
+            {
+                var groupId = (int)row["GroupId"];
+                var group = _duplicateGroups.FirstOrDefault(g => g.GroupId == groupId);
+                
+                if (group != null)
+                {
+                    // Find the group in our table rows and toggle expansion
+                    var groupRow = _tableRows.FirstOrDefault(r => r.IsGroupHeader && r.GroupId == groupId);
+                    if (groupRow != null)
+                    {
+                        groupRow.IsExpanded = !groupRow.IsExpanded;
+                        
+                        // Rebuild the table data to show/hide child rows
+                        var newDataTable = CreateTableData();
+                        tableView.Table = newDataTable;
+                        tableView.SetNeedsDisplay();
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Toggles all groups expansion in TableView
+        /// </summary>
+        private void ToggleAllGroupsInTable(bool expand, TableView tableView)
+        {
+            foreach (var row in _tableRows.Where(r => r.IsGroupHeader))
+            {
+                row.IsExpanded = expand;
+            }
+            
+            // Rebuild the table data
+            var newDataTable = CreateTableData();
+            tableView.Table = newDataTable;
+            tableView.SetNeedsDisplay();
+        }
+
+        /// <summary>
+        /// Auto-collapses groups that will only have one entry remaining after deletion
+        /// </summary>
+        private void AutoCollapseResolvedGroups(TableView tableView)
+        {
+            var collapsedGroups = 0;
+            
+            foreach (var group in _duplicateGroups)
+            {
+                var unselectedCount = group.Songs.Count(s => !s.IsSelected);
+                
+                if (unselectedCount <= 1)
+                {
+                    // This group will have 1 or 0 songs remaining after deletion - collapse it
+                    var groupRow = _tableRows.FirstOrDefault(r => r.IsGroupHeader && r.GroupId == group.GroupId);
+                    if (groupRow != null && groupRow.IsExpanded)
+                    {
+                        groupRow.IsExpanded = false;
+                        collapsedGroups++;
+                    }
+                }
+            }
+            
+            // Rebuild the table data
+            var newDataTable = CreateTableData();
+            tableView.Table = newDataTable;
+            tableView.SetNeedsDisplay();
+            
+            if (collapsedGroups > 0)
+            {
+                Log.Information("Auto-collapsed {Count} resolved groups", collapsedGroups);
+            }
+        }
+
+        /// <summary>
+        /// Selects or deselects all songs in TableView
+        /// </summary>
+        private void SelectAllSongsInTable(bool select, TableView tableView)
+        {
+            foreach (var group in _duplicateGroups)
+            {
+                foreach (var song in group.Songs)
+                {
+                    song.IsSelected = select;
+                }
+            }
+
+            // Update table rows
+            foreach (var row in _tableRows.Where(r => !r.IsGroupHeader))
+            {
+                row.IsSelected = select;
+            }
+
+            // Rebuild the table data
+            var newDataTable = CreateTableData();
+            tableView.Table = newDataTable;
+            tableView.SetNeedsDisplay();
+        }
+
+        /// <summary>
+        /// Deletes selected duplicates from TableView
+        /// </summary>
+        private void DeleteSelectedDuplicatesFromTable(TableView tableView)
+        {
+            var selectedSongs = _duplicateGroups
+                .SelectMany(g => g.Songs)
+                .Where(s => s.IsSelected)
+                .ToList();
+                
+            if (!selectedSongs.Any())
+            {
+                MessageBox.ErrorQuery("No Selection", 
+                    "Please select songs to delete by checking the boxes next to them.\\n\\n" +
+                    "Tip: Use Space key to check/uncheck songs, or use the batch selection buttons.",
+                    "Ok");
+                return;
+            }
+
+            // Count how many groups will have songs remaining
+            var groupsWithRemaining = _duplicateGroups
+                .Where(g => g.Songs.Any(s => !s.IsSelected))
+                .Count();
+                
+            var groupsCompletelyDeleted = _duplicateGroups
+                .Where(g => g.Songs.All(s => s.IsSelected))
+                .Count();
+
+            var confirmMessage = $"You are about to delete {selectedSongs.Count} song(s) from your Myriad database.\\n\\n";
+            
+            if (groupsCompletelyDeleted > 0)
+            {
+                confirmMessage += $"⚠ WARNING: {groupsCompletelyDeleted} duplicate group(s) will have ALL songs deleted!\\n" +
+                                "This means no copies will remain in your database.\\n\\n";
+            }
+            
+            confirmMessage += $"Groups with songs remaining: {groupsWithRemaining}\\n" +
+                            $"Groups completely deleted: {groupsCompletelyDeleted}\\n\\n" +
+                            "This action cannot be undone!\\n\\n" +
+                            "Do you want to proceed?";
+            
+            var result = MessageBox.Query("Confirm Deletion", confirmMessage, "Yes", "No");
+            
+            if (result == 0) // Yes
+            {
+                var progressDialog = new Dialog("Deleting Songs", 50, 8);
+                var progressLabel = new Label("Deleting selected songs...") 
+                { 
+                    X = 1, Y = 1, Width = Dim.Fill() - 2 
+                };
+                var progressBar = new ProgressBar() 
+                { 
+                    X = 1, Y = 3, Width = Dim.Fill() - 2, Height = 1 
+                };
+
+                progressDialog.Add(progressLabel, progressBar);
+                
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var mediaIds = selectedSongs.Select(s => s.MediaId).ToList();
+                        
+                        // Create progress reporter
+                        var progress = new Progress<float>(value =>
+                        {
+                            Application.MainLoop.Invoke(() =>
+                            {
+                                progressBar.Fraction = value;
+                                progressLabel.Text = $"Deleting {(int)(value * mediaIds.Count)}/{mediaIds.Count} songs...";
+                            });
+                        });
+
+                        var success = await _duplicateDetectionService.DeleteMediaItemsAsync(mediaIds, progress);
+
+                        Application.MainLoop.Invoke(() =>
+                        {
+                            Application.RequestStop(progressDialog);
+                            
+                            if (success)
+                            {
+                                // Remove deleted songs from groups
+                                foreach (var group in _duplicateGroups.ToList())
+                                {
+                                    foreach (var song in selectedSongs)
+                                    {
+                                        group.Songs.Remove(song);
+                                    }
+
+                                    // Remove groups with 1 or fewer songs
+                                    if (group.Songs.Count <= 1)
+                                    {
+                                        _duplicateGroups.Remove(group);
+                                    }
+                                }
+
+                                // Rebuild table rows
+                                _tableRows = CreateTableRows(_duplicateGroups);
+
+                                // Refresh the table
+                                var newDataTable = CreateTableData();
+                                tableView.Table = newDataTable;
+                                tableView.SetNeedsDisplay();
+
+                                MessageBox.Query("Success", 
+                                    $"Successfully deleted {selectedSongs.Count} duplicate songs.\\n\\n" +
+                                    $"Remaining duplicate groups: {_duplicateGroups.Count}", 
+                                    "Ok");
+                            }
+                            else
+                            {
+                                MessageBox.ErrorQuery("Error", 
+                                    "Some songs could not be deleted. Check the log for details.", 
+                                    "Ok");
+                            }
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, "Error during deletion");
+                        Application.MainLoop.Invoke(() =>
+                        {
+                            Application.RequestStop(progressDialog);
+                            MessageBox.ErrorQuery("Error", 
+                                $"An error occurred during deletion: {ex.Message}", 
+                                "Ok");
+                        });
+                    }
+                });
+
+                Application.Run(progressDialog);
+            }
+        }
+
+        /// <summary>
+        /// Creates a DataTable for the TableView with duplicate data (user-friendly columns only)
+        /// </summary>
+        private DataTable CreateTableData()
+        {
+            var dataTable = new DataTable();
+            // Only show user-relevant columns
+            dataTable.Columns.Add("Group", typeof(string));
+            dataTable.Columns.Add("Del", typeof(string));
+            dataTable.Columns.Add("ID", typeof(string));
+            dataTable.Columns.Add("Title", typeof(string));
+            dataTable.Columns.Add("Artist", typeof(string));
+            dataTable.Columns.Add("Duration", typeof(string));
+            dataTable.Columns.Add("Categories", typeof(string));
+            
+            // Keep internal columns but make them hidden-width
+            dataTable.Columns.Add("IsGroupHeader", typeof(bool));
+            dataTable.Columns.Add("GroupId", typeof(int));
+            dataTable.Columns.Add("MediaId", typeof(int));
+
+            foreach (var group in _duplicateGroups)
+            {
+                // Find the corresponding table row to check expansion state
+                var groupTableRow = _tableRows.FirstOrDefault(r => r.IsGroupHeader && r.GroupId == group.GroupId);
+                var isExpanded = groupTableRow?.IsExpanded ?? true;
+                
+                // Add group header row
+                var expandIcon = isExpanded ? "▼" : "▶";
+                var unselectedCount = group.Songs.Count(s => !s.IsSelected);
+                var statusText = unselectedCount <= 1 ? " (Resolved)" : "";
+                
+                var groupRow = dataTable.NewRow();
+                groupRow["Group"] = $"{expandIcon} Group {group.GroupId}";
+                groupRow["Del"] = "";
+                groupRow["ID"] = "";
+                groupRow["Title"] = $"{group.Songs.First().Title} - {group.Songs.First().Artist}{statusText}";
+                groupRow["Artist"] = $"({group.Songs.Count} duplicates)";
+                groupRow["Duration"] = "";
+                groupRow["Categories"] = "";
+                groupRow["IsGroupHeader"] = true;
+                groupRow["GroupId"] = group.GroupId;
+                groupRow["MediaId"] = 0;
+                dataTable.Rows.Add(groupRow);
+
+                // Only add individual song rows if the group is expanded
+                if (isExpanded)
+                {
+                    foreach (var song in group.Songs)
+                    {
+                        var songRow = dataTable.NewRow();
+                        songRow["Group"] = "";
+                        songRow["Del"] = song.IsSelected ? "[X]" : "[ ]";
+                        songRow["ID"] = song.MediaId.ToString();
+                        songRow["Title"] = song.Title;
+                        songRow["Artist"] = song.Artist;
+                        songRow["Duration"] = song.Duration;
+                        songRow["Categories"] = string.Join(", ", song.Categories);
+                        songRow["IsGroupHeader"] = false;
+                        songRow["GroupId"] = group.GroupId;
+                        songRow["MediaId"] = song.MediaId;
+                        dataTable.Rows.Add(songRow);
+                    }
+                }
+            }
+
+            return dataTable;
         }
 
         /// <summary>
@@ -361,6 +783,26 @@ namespace MyriadMusicTagger.UI.Controllers
         /// <summary>
         /// Formats a table row for display
         /// </summary>
+        /// <summary>
+        /// Updates a specific row's display without rebuilding the entire table - MINIMAL APPROACH
+        /// </summary>
+        private void UpdateRowDisplay(ListView tableView, int rowIndex, DuplicateTableRow row)
+        {
+            // Simply store the scroll position and restore it
+            var currentSelection = tableView.SelectedItem;
+            var currentTop = tableView.TopItem;
+            
+            // Rebuild only the visible rows to ensure accuracy
+            var visibleRows = GetVisibleRows();
+            var displayList = visibleRows.Select(r => FormatRowForDisplay(r)).ToList();
+            
+            // Set the source and immediately restore position
+            tableView.SetSource(displayList);
+            tableView.SelectedItem = currentSelection;
+            tableView.TopItem = currentTop;
+            tableView.SetNeedsDisplay();
+        }
+
         private string FormatRowForDisplay(DuplicateTableRow row)
         {
             if (row.IsGroupHeader)
@@ -392,8 +834,9 @@ namespace MyriadMusicTagger.UI.Controllers
             {
                 row.Song.IsSelected = !row.Song.IsSelected;
                 row.IsSelected = row.Song.IsSelected;
-                LoadTableData(tableView);
-                tableView.SelectedItem = selectedIndex; // Maintain selection
+                
+                // Update only this specific row without rebuilding the entire table
+                UpdateRowDisplay(tableView, selectedIndex, row);
             }
         }
 
@@ -448,7 +891,15 @@ namespace MyriadMusicTagger.UI.Controllers
                 row.IsSelected = select;
             }
 
-            LoadTableData(tableView);
+            // Update all visible rows while preserving scroll position
+            var currentSelection = tableView.SelectedItem;
+            var currentTop = tableView.TopItem;
+            var visibleRows = GetVisibleRows();
+            var displayList = visibleRows.Select(row => FormatRowForDisplay(row)).ToList();
+            tableView.SetSource(displayList);
+            tableView.SelectedItem = currentSelection;
+            tableView.TopItem = currentTop;
+            tableView.SetNeedsDisplay();
         }
 
         /// <summary>
@@ -514,16 +965,20 @@ namespace MyriadMusicTagger.UI.Controllers
                     {
                         var mediaIds = selectedSongs.Select(s => s.MediaId).ToList();
                         
-                        Application.MainLoop.Invoke(() =>
+                        // Create progress reporter
+                        var progress = new Progress<float>(value =>
                         {
-                            progressBar.Fraction = 0.5f;
+                            Application.MainLoop.Invoke(() =>
+                            {
+                                progressBar.Fraction = value;
+                                progressLabel.Text = $"Deleting {(int)(value * mediaIds.Count)}/{mediaIds.Count} songs...";
+                            });
                         });
 
-                        var success = await _duplicateDetectionService.DeleteMediaItemsAsync(mediaIds);
+                        var success = await _duplicateDetectionService.DeleteMediaItemsAsync(mediaIds, progress);
 
                         Application.MainLoop.Invoke(() =>
                         {
-                            progressBar.Fraction = 1.0f;
                             Application.RequestStop(progressDialog);
                             
                             if (success)
