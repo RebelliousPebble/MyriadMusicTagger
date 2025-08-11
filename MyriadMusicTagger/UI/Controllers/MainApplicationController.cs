@@ -15,6 +15,7 @@ namespace MyriadMusicTagger.UI.Controllers
         private RecentItemsController? _recentItemsController;
         private CdRippingController? _cdRippingController;
         private DuplicateDetectionController? _duplicateDetectionController;
+        private AudioQualityController? _audioQualityController;
 
         public MainApplicationController(ApplicationManager applicationManager)
         {
@@ -31,6 +32,7 @@ namespace MyriadMusicTagger.UI.Controllers
             _recentItemsController = new RecentItemsController(_applicationManager.ItemProcessingService, _applicationManager.RecentItemsManager);
             _cdRippingController = new CdRippingController(_applicationManager.CdRippingService);
             _duplicateDetectionController = new DuplicateDetectionController(_applicationManager.DuplicateDetectionService);
+            _audioQualityController = new AudioQualityController(_applicationManager.AudioQualityAnalysisService, _applicationManager.CurrentSettings);
         }
 
         /// <summary>
@@ -68,7 +70,8 @@ namespace MyriadMusicTagger.UI.Controllers
                     new MenuItem("_Recent Items", "", () => ProcessRecentItems(), null, null, Key.R | Key.CtrlMask),
                     new MenuItem("", "", null), // Separator
                     new MenuItem("Rip _CD", "", () => RipCd(), null, null, Key.D | Key.CtrlMask),
-                    new MenuItem("Find _Duplicates", "", () => FindDuplicates(), null, null, Key.F | Key.CtrlMask)
+                    new MenuItem("Find _Duplicates", "", () => FindDuplicates(), null, null, Key.F | Key.CtrlMask),
+                    new MenuItem("_Audio Quality Analysis", "", () => AnalyzeAudioQuality(), null, null, Key.Q | Key.CtrlMask | Key.AltMask)
                 }),
                 new MenuBarItem("_Help", new MenuItem[]
                 {
@@ -138,6 +141,14 @@ namespace MyriadMusicTagger.UI.Controllers
         private void FindDuplicates()
         {
             _duplicateDetectionController?.ShowDuplicateDetectionDialog();
+        }
+
+        /// <summary>
+        /// Shows the audio quality analysis dialog
+        /// </summary>
+        private void AnalyzeAudioQuality()
+        {
+            _audioQualityController?.ShowAudioQualityDialog();
         }
 
         /// <summary>

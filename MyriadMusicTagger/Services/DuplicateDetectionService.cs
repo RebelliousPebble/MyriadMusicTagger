@@ -2,6 +2,7 @@ using RestSharp;
 using Newtonsoft.Json;
 using Serilog;
 using System.Text.RegularExpressions;
+using MyriadMusicTagger.Utils;
 
 namespace MyriadMusicTagger.Services
 {
@@ -12,6 +13,7 @@ namespace MyriadMusicTagger.Services
     {
         private readonly RestClient _resClient;
         private readonly AppSettings _settings;
+        private readonly MyriadDatabaseSearcher _databaseSearcher;
 
         public DuplicateDetectionService(AppSettings settings)
         {
@@ -25,6 +27,7 @@ namespace MyriadMusicTagger.Services
                 ThrowOnDeserializationError = false
             };
             _resClient = new RestClient(resOptions);
+            _databaseSearcher = new MyriadDatabaseSearcher(settings);
         }
 
         /// <summary>
@@ -48,243 +51,24 @@ namespace MyriadMusicTagger.Services
         {
             Log.Information("Starting duplicate detection for songs...");
             
-            var allSongs = await GetAllSongsAsync(apiProgressCallback);
-            Log.Information("Found {Count} songs in database", allSongs.Count);
+            // Use the shared database searcher
+            var basicSongs = await _databaseSearcher.GetAllSongsBasicAsync(apiProgressCallback);
+            Log.Information("Found {Count} songs in database", basicSongs.Count);
+            
+            // Convert to DuplicateCandidate format for compatibility
+            var allSongs = basicSongs.Select(s => new DuplicateCandidate
+            {
+                MediaId = s.MediaId,
+                Title = s.Title,
+                Artist = s.Artist,
+                Duration = s.Duration,
+                Categories = s.Categories
+            }).ToList();
             
             var duplicateGroups = GroupDuplicates(allSongs, analysisProgressCallback);
             Log.Information("Found {Count} groups with potential duplicates", duplicateGroups.Count);
             
             return duplicateGroups;
-        }
-
-        /// <summary>
-        /// Gets all songs from the database using the RES API search endpoint
-        /// </summary>
-        private async Task<List<DuplicateCandidate>> GetAllSongsAsync()
-        {
-            return await GetAllSongsAsync(null);
-        }
-
-        /// <summary>
-        /// Gets all songs from the database using the RES API search endpoint with progress reporting
-        /// </summary>
-        /// <param name="progressCallback">Callback for progress updates (0.0 to 1.0)</param>
-        private async Task<List<DuplicateCandidate>> GetAllSongsAsync(Action<float>? progressCallback)
-        {
-            var allSongs = new List<DuplicateCandidate>();
-            // Start with smaller batch size to avoid timeouts, increase if successful
-            int batchSize = 100; 
-            int currentStartId = 1;
-            bool hasMoreResults = true;
-            int successfulBatches = 0;
-            int estimatedTotalSongs = 10000; // Initial estimate, will adjust as we learn more
-
-            Log.Information("Starting to retrieve songs from RES API at {BaseUrl}", _resClient.Options.BaseUrl);
-
-            // Test API connectivity first
-            try
-            {
-                var testRequest = new RestRequest("/api/Media/Search");
-                testRequest.AddQueryParameter("itemType", "Song");
-                testRequest.AddQueryParameter("maxResultCount", "1");
-                testRequest.AddQueryParameter("returnInfo", "Basic");
-                testRequest.AddHeader("X-API-Key", _settings.RESReadKey);
-                testRequest.Timeout = TimeSpan.FromSeconds(30); // Shorter timeout for connectivity test
-
-                Log.Debug("Testing API connectivity...");
-                var testResponse = await _resClient.ExecuteAsync(testRequest);
-                
-                if (!testResponse.IsSuccessful)
-                {
-                    Log.Error("API connectivity test failed. Status: {Status}, Error: {Error}", 
-                        testResponse.StatusCode, testResponse.ErrorMessage);
-                    
-                    if (testResponse.StatusCode == 0)
-                    {
-                        Log.Error("Could not connect to RES API. Please verify:");
-                        Log.Error("1. RES API service is running");
-                        Log.Error("2. API URL is correct: {Url}", _resClient.Options.BaseUrl);
-                        Log.Error("3. Network connectivity is available");
-                    }
-                    return allSongs; // Return empty list
-                }
-                
-                Log.Debug("API connectivity test successful");
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Failed to test API connectivity");
-                return allSongs; // Return empty list
-            }
-
-            while (hasMoreResults)
-            {
-                try
-                {
-                    var request = new RestRequest("/api/Media/Search");
-                    request.AddQueryParameter("itemType", "Song");
-                    request.AddQueryParameter("maxResultCount", batchSize.ToString());
-                    request.AddQueryParameter("returnInfo", "Full");
-                    request.AddQueryParameter("stationId", "-1"); // Use current station
-                    request.AddQueryParameter("attributesStationId", "-1"); // Use current station
-                    request.Timeout = TimeSpan.FromMinutes(2); // 2 minute timeout per request
-                    
-                    // Only add startId/endId if it's greater than 1 (for first batch, get everything)
-                    if (currentStartId > 1)
-                    {
-                        request.AddQueryParameter("startId", currentStartId.ToString());
-                        // RES API requires both startId and endId when using range-based queries
-                        // Use a very high endId to get all remaining items
-                        request.AddQueryParameter("endId", "999999999");
-                    }
-                    
-                    request.AddHeader("X-API-Key", _settings.RESReadKey);
-
-                    Log.Debug("Making API request to {BaseUrl}{Resource} with parameters: itemType=Song, startId={StartId}, endId={EndId}, maxResultCount={MaxResults}", 
-                        _resClient.Options.BaseUrl, request.Resource, 
-                        currentStartId > 1 ? currentStartId.ToString() : "not set", 
-                        currentStartId > 1 ? "999999999" : "not set", 
-                        batchSize);
-
-                    var response = await _resClient.ExecuteAsync(request);
-                    
-                    Log.Debug("API response: Status={Status}, ContentLength={ContentLength}", 
-                        response.StatusCode, response.Content?.Length ?? 0);
-
-                    if (!response.IsSuccessful || string.IsNullOrEmpty(response.Content))
-                    {
-                        var errorMessage = response.ErrorMessage ?? "Unknown error";
-                        
-                        if (response.StatusCode == 0 && errorMessage.Contains("canceled"))
-                        {
-                            Log.Error("Request was canceled/timed out for batch starting at ID {StartId}. This may indicate:", currentStartId);
-                            Log.Error("1. RES API service is not responding");
-                            Log.Error("2. Network connectivity issues");
-                            Log.Error("3. Database query taking too long (large dataset)");
-                            Log.Error("4. API service is overloaded");
-                        }
-                        
-                        Log.Warning("Failed to retrieve songs batch starting at ID {StartId}. Status: {StatusCode}, Error: {Error}, Content: {Content}", 
-                            currentStartId, response.StatusCode, errorMessage, response.Content ?? "No content");
-                        break;
-                    }
-
-                    var searchResult = JsonConvert.DeserializeObject<SearchMediaResults>(response.Content);
-                    
-                    Log.Debug("Deserialized response: Items count = {ItemCount}", 
-                        searchResult?.Items.Count ?? 0);
-                    
-                    if (searchResult?.Items == null || !searchResult.Items.Any())
-                    {
-                        Log.Information("No more items found in batch starting at ID {StartId}", currentStartId);
-                        break;
-                    }
-
-                    var batchCandidates = searchResult.Items
-                        .Where(item => !string.IsNullOrWhiteSpace(item.Title))
-                        .Select(item => new DuplicateCandidate
-                        {
-                            MediaId = item.MediaId,
-                            Title = item.Title?.Trim() ?? "",
-                            Artist = ExtractArtist(item),
-                            Duration = item.TotalLength ?? "",
-                            Categories = ExtractCategories(item)
-                        }).ToList();
-
-                    allSongs.AddRange(batchCandidates);
-                    successfulBatches++;
-                    
-                    // Increase batch size progressively after successful requests
-                    if (successfulBatches >= 2 && batchSize < 500)
-                    {
-                        batchSize = Math.Min(batchSize * 2, 500);
-                        Log.Debug("Increasing batch size to {BatchSize} after {SuccessfulBatches} successful batches", 
-                            batchSize, successfulBatches);
-                    }
-                    
-                    // Update the start ID for the next batch
-                    currentStartId = searchResult.Items.Max(i => i.MediaId) + 1;
-                    
-                    // Update progress based on current songs retrieved
-                    // For the first few batches, estimate progress conservatively
-                    if (progressCallback != null)
-                    {
-                        float progress;
-                        if (allSongs.Count < estimatedTotalSongs)
-                        {
-                            progress = Math.Min(0.8f, (float)allSongs.Count / estimatedTotalSongs);
-                        }
-                        else
-                        {
-                            // We've exceeded our estimate, adjust it
-                            estimatedTotalSongs = (int)(allSongs.Count * 1.2f);
-                            progress = 0.9f; // Close to completion
-                        }
-                        progressCallback(progress);
-                    }
-                    
-                    Log.Debug("Retrieved batch of {Count} songs, total so far: {Total}", 
-                        batchCandidates.Count, allSongs.Count);
-                }
-                catch (Exception ex)
-                {
-                    Log.Error(ex, "Error retrieving songs batch starting at ID {StartId}", currentStartId);
-                    hasMoreResults = false;
-                }
-            }
-
-            // Mark API retrieval as complete
-            progressCallback?.Invoke(1.0f);
-
-            return allSongs;
-        }
-
-        /// <summary>
-        /// Extracts artist information from various fields in the media item
-        /// </summary>
-        private string ExtractArtist(MediaItem item)
-        {
-            // Try to get artist from Artists array first
-            if (item.Artists != null && item.Artists.Any())
-            {
-                var firstArtist = item.Artists.FirstOrDefault();
-                if (!string.IsNullOrWhiteSpace(firstArtist?.ArtistName))
-                    return firstArtist.ArtistName.Trim();
-            }
-
-            // Try to get artist from copyright performer
-            if (!string.IsNullOrWhiteSpace(item.Copyright?.Performer))
-                return item.Copyright.Performer.Trim();
-
-            // Check if the title contains " - " and extract artist from there
-            if (!string.IsNullOrWhiteSpace(item.Title) && item.Title.Contains(" - "))
-            {
-                var parts = item.Title.Split(new[] { " - " }, 2, StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length == 2)
-                {
-                    return parts[0].Trim();
-                }
-            }
-
-            return "";
-        }
-
-        /// <summary>
-        /// Extracts category information from the media item
-        /// </summary>
-        private List<string> ExtractCategories(MediaItem item)
-        {
-            var categories = new List<string>();
-            
-            // Add category from IngestCategoryName if available
-            if (!string.IsNullOrWhiteSpace(item.IngestCategoryName))
-            {
-                categories.Add(item.IngestCategoryName);
-            }
-            
-            // Could add more category sources here based on your Myriad configuration
-            
-            return categories;
         }
 
         /// <summary>
@@ -721,44 +505,5 @@ namespace MyriadMusicTagger.Services
         public string NormalizedArtist { get; set; } = "";
         public string[] TitleWords { get; set; } = Array.Empty<string>();
         public string[] ArtistWords { get; set; } = Array.Empty<string>();
-    }
-
-    /// <summary>
-    /// Response model for the media search API
-    /// </summary>
-    public class SearchMediaResults
-    {
-        public List<MediaItem> Items { get; set; } = new List<MediaItem>();
-        public int NumberOfResultsLimitedTo { get; set; }
-    }
-
-    public class MediaItem
-    {
-        public int MediaId { get; set; }
-        public string? Title { get; set; }
-        public string? TotalLength { get; set; }
-        public List<ArtistInfo>? Artists { get; set; }
-        public MediaCopyright? Copyright { get; set; }
-        public string? IngestCategoryName { get; set; }
-    }
-
-    public class ArtistInfo
-    {
-        public int ArtistId { get; set; }
-        public string? ArtistName { get; set; }
-        public int Verified { get; set; }
-    }
-
-    public class MediaCopyright
-    {
-        public string? CopyrightTitle { get; set; }
-        public string? Performer { get; set; }
-        public string? RecordingNumber { get; set; }
-        public string? RecordLabel { get; set; }
-        public string? Composer { get; set; }
-        public string? Lyricist { get; set; }
-        public string? Publisher { get; set; }
-        public string? Isrc { get; set; }
-        public string? License { get; set; }
     }
 }
