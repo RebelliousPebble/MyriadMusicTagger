@@ -13,6 +13,7 @@ namespace MyriadMusicTagger
     {
         private const string SettingsFileName = "settings.json"; // Changed from appsettings.json to settings.json to match original
         private static readonly Regex UrlPattern = new(@"^https?:\/\/.+", RegexOptions.Compiled);
+        private const double MinDelayBetweenRequests = 0.2; // Minimum delay in seconds
 
         public static AppSettings LoadSettings()
         {
@@ -62,10 +63,30 @@ namespace MyriadMusicTagger
         private static bool ValidateSettings(AppSettings settings)
         {
             // Validate all required fields
-            return !string.IsNullOrWhiteSpace(settings.AcoustIDClientKey) &&
-                   !string.IsNullOrWhiteSpace(settings.PlayoutReadKey) && // WriteKey is optional, ReadKey is not
-                   settings.DelayBetweenRequests >= 0.2 && // MusicBrainz asks for at least 1 req/sec, so 1000ms. Let's be safe with 200ms as a bare minimum.
-                   !string.IsNullOrWhiteSpace(settings.PlayoutApiUrl) && UrlPattern.IsMatch(settings.PlayoutApiUrl);
+            return IsValidClientKey(settings.AcoustIDClientKey) &&
+                   IsValidReadKey(settings.PlayoutReadKey) && // WriteKey is optional, ReadKey is not
+                   IsValidDelay(settings.DelayBetweenRequests) && // MusicBrainz asks for at least 1 req/sec, so 1000ms. Let's be safe with 200ms as a bare minimum.
+                   IsValidApiUrl(settings.PlayoutApiUrl);
+        }
+
+        private static bool IsValidClientKey(string clientKey)
+        {
+            return !string.IsNullOrWhiteSpace(clientKey);
+        }
+
+        private static bool IsValidReadKey(string readKey)
+        {
+            return !string.IsNullOrWhiteSpace(readKey);
+        }
+
+        private static bool IsValidDelay(double delay)
+        {
+            return delay >= MinDelayBetweenRequests;
+        }
+
+        private static bool IsValidApiUrl(string apiUrl)
+        {
+            return !string.IsNullOrWhiteSpace(apiUrl) && UrlPattern.IsMatch(apiUrl);
         }
 
         private static AppSettings ShowSettingsDialog(AppSettings currentSettings)
@@ -135,19 +156,23 @@ namespace MyriadMusicTagger
                 };
 
                 var validationErrors = new StringBuilder();
-                if (string.IsNullOrWhiteSpace(tempSettings.AcoustIDClientKey)) validationErrors.AppendLine("- AcoustID Client Key is required.");
-                if (string.IsNullOrWhiteSpace(tempSettings.PlayoutReadKey)) validationErrors.AppendLine("- Playout Read Key is required.");
+                
+                if (!IsValidClientKey(tempSettings.AcoustIDClientKey)) 
+                    validationErrors.AppendLine("- AcoustID Client Key is required.");
+                    
+                if (!IsValidReadKey(tempSettings.PlayoutReadKey)) 
+                    validationErrors.AppendLine("- Playout Read Key is required.");
 
-                if (!double.TryParse(delayField.Text.ToString(), out double delayVal) || delayVal < 0.2)
+                if (!double.TryParse(delayField.Text.ToString(), out double delayVal) || !IsValidDelay(delayVal))
                 {
-                    validationErrors.AppendLine("- Delay must be a number >= 0.2 seconds.");
+                    validationErrors.AppendLine($"- Delay must be a number >= {MinDelayBetweenRequests} seconds.");
                 }
                 else
                 {
                     tempSettings.DelayBetweenRequests = delayVal;
                 }
 
-                if (string.IsNullOrWhiteSpace(tempSettings.PlayoutApiUrl) || !UrlPattern.IsMatch(tempSettings.PlayoutApiUrl))
+                if (!IsValidApiUrl(tempSettings.PlayoutApiUrl))
                 {
                     validationErrors.AppendLine("- Playout API URL is required and must be a valid HTTP/HTTPS URL.");
                 }

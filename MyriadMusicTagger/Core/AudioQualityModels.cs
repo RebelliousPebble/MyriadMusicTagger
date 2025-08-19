@@ -27,8 +27,8 @@ namespace MyriadMusicTagger.Core
         public string ErrorMessage { get; set; } = "";
         public TimeSpan ProcessingTime { get; set; }
         
-        // Recommendations
-        public bool RecommendReRip => OverallQualityScore < 60.0f;
+        // Recommendations (now dynamic based on analysis settings threshold)
+        public bool RecommendReRip { get; set; }
         public List<string> QualityIssues { get; set; } = new List<string>();
         public string Notes { get; set; } = "";
     }

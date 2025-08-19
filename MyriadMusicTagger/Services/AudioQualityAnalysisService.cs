@@ -117,73 +117,12 @@ namespace MyriadMusicTagger.Services
                 OnStatusChanged($"Getting detailed information for {mediaIds.Count} tracks...");
 
                 // Get detailed information for specified tracks
-            var detailedTracks = await _databaseSearcher.GetDetailedMediaItemsBatchAsync(mediaIds, 
-                progress => OnProgressChanged(new QualityAnalysisProgress 
-                { 
-                    CurrentPhase = "Retrieving track information"
-                }));
-
-            Log.Information("Retrieved {Count} detailed tracks, analyzing file paths...", detailedTracks.Count);
-
-            // Debug file path issues
-            var emptyPaths = detailedTracks.Where(t => string.IsNullOrEmpty(t.FilePath)).Count();
-            var nonExistentPaths = detailedTracks.Where(t => !string.IsNullOrEmpty(t.FilePath) && !File.Exists(t.FilePath)).Count();
-            var validPaths = detailedTracks.Where(t => !string.IsNullOrEmpty(t.FilePath) && File.Exists(t.FilePath)).Count();
-
-            Log.Information("File path analysis: {EmptyPaths} empty paths, {NonExistent} non-existent files, {Valid} valid files", 
-                emptyPaths, nonExistentPaths, validPaths);
-
-            if (emptyPaths > 0)
-            {
-                var sampleEmptyPath = detailedTracks.Where(t => string.IsNullOrEmpty(t.FilePath)).Take(3).ToList();
-                Log.Warning("Sample tracks with empty file paths:");
-                foreach (var track in sampleEmptyPath)
-                {
-                    Log.Warning("   - ID {MediaId}: '{Title}' by '{Artist}' - FilePath: '{FilePath}'", 
-                        track.MediaId, track.Title, track.Artist, track.FilePath ?? "<null>");
-                }
-            }
-
-            if (nonExistentPaths > 0)
-            {
-                var sampleNonExistent = detailedTracks.Where(t => !string.IsNullOrEmpty(t.FilePath) && !File.Exists(t.FilePath)).Take(3).ToList();
-                Log.Warning("Sample tracks with non-existent file paths:");
-                foreach (var track in sampleNonExistent)
-                {
-                    Log.Warning("   - ID {MediaId}: '{Title}' by '{Artist}' - FilePath: '{FilePath}'", 
-                        track.MediaId, track.Title, track.Artist, track.FilePath);
-                }
-            }
-
-            // For now, let's provide a way to continue analysis with a configurable setting
-            var validTracks = detailedTracks.Where(t => !string.IsNullOrEmpty(t.FilePath) && File.Exists(t.FilePath)).ToList();
-
-            // If no valid tracks found but we have tracks with file paths, provide helpful guidance
-            if (validTracks.Count == 0 && nonExistentPaths > 0)
-            {
-                Log.Warning("No valid file paths found. This might be due to:");
-                Log.Warning("   - Network drives not mounted (e.g., \\\\server\\share paths)");
-                Log.Warning("   - Files moved after import");
-                Log.Warning("   - Different drive mappings");
-                Log.Warning("   - Relative paths missing base directory");
+                var detailedTracks = await GetDetailedTracksInfo(mediaIds, cancellationToken);
                 
-                // Show some examples of the paths we're seeing
-                var pathExamples = detailedTracks.Where(t => !string.IsNullOrEmpty(t.FilePath))
-                    .Take(5)
-                    .Select(t => t.FilePath)
-                    .ToList();
+                // Validate and filter tracks
+                var validTracks = ValidateAndFilterTracks(detailedTracks);
                 
-                if (pathExamples.Any())
-                {
-                    Log.Warning("Example file paths from your database:");
-                    foreach (var path in pathExamples)
-                    {
-                        Log.Warning("   - {Path}", path);
-                    }
-                }
-            }
-
-            Log.Information("Found {Count} tracks with valid file paths out of {Total}", validTracks.Count, detailedTracks.Count);                if (validTracks.Count == 0)
+                if (validTracks.Count == 0)
                 {
                     OnStatusChanged("No tracks with valid file paths found");
                     return new QualityReport { TotalTracksAnalyzed = mediaIds.Count, FailedAnalyses = mediaIds.Count };
@@ -214,6 +153,100 @@ namespace MyriadMusicTagger.Services
         }
 
         /// <summary>
+        /// Gets detailed track information for the specified media IDs
+        /// </summary>
+        private async Task<List<DetailedMediaItem>> GetDetailedTracksInfo(List<int> mediaIds, CancellationToken cancellationToken)
+        {
+            var detailedTracks = await _databaseSearcher.GetDetailedMediaItemsBatchAsync(mediaIds, 
+                progress => OnProgressChanged(new QualityAnalysisProgress 
+                { 
+                    CurrentPhase = "Retrieving track information"
+                }),
+                cancellationToken);
+
+            Log.Information("Retrieved {Count} detailed tracks, analyzing file paths...", detailedTracks.Count);
+            return detailedTracks;
+        }
+
+        /// <summary>
+        /// Validates tracks and filters those with valid file paths
+        /// </summary>
+        private List<DetailedMediaItem> ValidateAndFilterTracks(List<DetailedMediaItem> detailedTracks)
+        {
+            // Debug file path issues
+            var emptyPaths = detailedTracks.Count(t => string.IsNullOrEmpty(t.FilePath));
+            var nonExistentPaths = detailedTracks.Count(t => !string.IsNullOrEmpty(t.FilePath) && !File.Exists(t.FilePath));
+            var validPaths = detailedTracks.Count(t => !string.IsNullOrEmpty(t.FilePath) && File.Exists(t.FilePath));
+
+            Log.Information("File path analysis: {EmptyPaths} empty paths, {NonExistent} non-existent files, {Valid} valid files", 
+                emptyPaths, nonExistentPaths, validPaths);
+
+            LogFilePathIssues(detailedTracks, emptyPaths, nonExistentPaths);
+
+            return detailedTracks.Where(t => !string.IsNullOrEmpty(t.FilePath) && File.Exists(t.FilePath)).ToList();
+        }
+
+        /// <summary>
+        /// Logs file path issues for debugging purposes
+        /// </summary>
+        private static void LogFilePathIssues(List<DetailedMediaItem> detailedTracks, int emptyPaths, int nonExistentPaths)
+        {
+            if (emptyPaths > 0)
+            {
+                var sampleEmptyPath = detailedTracks.Where(t => string.IsNullOrEmpty(t.FilePath)).Take(3).ToList();
+                Log.Warning("Sample tracks with empty file paths:");
+                foreach (var track in sampleEmptyPath)
+                {
+                    Log.Warning("   - ID {MediaId}: '{Title}' by '{Artist}' - FilePath: '{FilePath}'", 
+                        track.MediaId, track.Title, track.Artist, track.FilePath ?? "<null>");
+                }
+            }
+
+            if (nonExistentPaths > 0)
+            {
+                var sampleNonExistent = detailedTracks.Where(t => !string.IsNullOrEmpty(t.FilePath) && !File.Exists(t.FilePath)).Take(3).ToList();
+                Log.Warning("Sample tracks with non-existent file paths:");
+                foreach (var track in sampleNonExistent)
+                {
+                    Log.Warning("   - ID {MediaId}: '{Title}' by '{Artist}' - FilePath: '{FilePath}'", 
+                        track.MediaId, track.Title, track.Artist, track.FilePath);
+                }
+                
+                LogHelpfulGuidance(nonExistentPaths, detailedTracks);
+            }
+        }
+
+        /// <summary>
+        /// Logs helpful guidance for file path issues
+        /// </summary>
+        private static void LogHelpfulGuidance(int nonExistentPaths, List<DetailedMediaItem> detailedTracks)
+        {
+            if (nonExistentPaths > 0)
+            {
+                Log.Warning("No valid file paths found. This might be due to:");
+                Log.Warning("   - Network drives not mounted (e.g., \\\\server\\share paths)");
+                Log.Warning("   - Files moved after import");
+                Log.Warning("   - Different drive mappings");
+                Log.Warning("   - Relative paths missing base directory");
+                
+                // Show some examples of the paths we're seeing
+                var pathExamples = detailedTracks.Where(t => !string.IsNullOrEmpty(t.FilePath))
+                    .Take(5)
+                    .Select(t => t.FilePath)
+                    .ToList();
+                
+                if (pathExamples.Any())
+                {
+                    Log.Warning("Example file paths from your database:");
+                    foreach (var path in pathExamples)
+                    {
+                        Log.Warning("   - {Path}", path);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
         /// Gets tracks to analyze based on settings
         /// </summary>
         private async Task<List<BasicMediaItem>> GetTracksToAnalyzeAsync(CancellationToken cancellationToken)
@@ -224,11 +257,12 @@ namespace MyriadMusicTagger.Services
                     OnProgressChanged(new QualityAnalysisProgress 
                     { 
                         CurrentPhase = "Retrieving track list"
-                    }));
+                    }),
+                    cancellationToken);
             }
             else if (_analysisSettings.SpecificMediaIds.Any())
             {
-                var detailedTracks = await _databaseSearcher.GetDetailedMediaItemsBatchAsync(_analysisSettings.SpecificMediaIds);
+                var detailedTracks = await _databaseSearcher.GetDetailedMediaItemsBatchAsync(_analysisSettings.SpecificMediaIds, null, cancellationToken);
                 return detailedTracks.Select(t => new BasicMediaItem
                 {
                     MediaId = t.MediaId,
@@ -241,7 +275,7 @@ namespace MyriadMusicTagger.Services
             else
             {
                 // Filter by categories if specified
-                var allTracks = await _databaseSearcher.GetAllSongsBasicAsync();
+                var allTracks = await _databaseSearcher.GetAllSongsBasicAsync(null, cancellationToken);
                 
                 if (_analysisSettings.IncludeCategories.Any())
                 {
@@ -268,7 +302,8 @@ namespace MyriadMusicTagger.Services
                 OnProgressChanged(new QualityAnalysisProgress
                 {
                     CurrentPhase = "Getting detailed track information"
-                }));
+                }),
+                cancellationToken);
         }
 
         /// <summary>
@@ -334,9 +369,7 @@ namespace MyriadMusicTagger.Services
                         analysisProgress.EstimatedTimeRemaining = TimeSpan.FromSeconds(remainingTracks / analysisProgress.TracksPerSecond);
                     }
 
-                    var progressPercent = progressOffset + ((float)completed / totalTracks * (1.0f - progressOffset));
                     // Note: OverallProgress is calculated automatically based on ProcessedTracks/TotalTracks
-                    
                     OnProgressChanged(analysisProgress);
 
                     trackStopwatch.Stop();
@@ -400,7 +433,16 @@ namespace MyriadMusicTagger.Services
                 // Calculate summary statistics
                 var qualityScores = successfulResults.Select(r => r.OverallQualityScore).OrderBy(s => s).ToList();
                 report.AverageQualityScore = qualityScores.Average();
-                report.MedianQualityScore = qualityScores[qualityScores.Count / 2];
+                if (qualityScores.Count % 2 == 1)
+                {
+                    report.MedianQualityScore = qualityScores[qualityScores.Count / 2];
+                }
+                else if (qualityScores.Count > 0)
+                {
+                    var midHigh = qualityScores.Count / 2;
+                    var midLow = midHigh - 1;
+                    report.MedianQualityScore = (qualityScores[midLow] + qualityScores[midHigh]) / 2f;
+                }
 
                 // Count tracks needing re-rip
                 report.TracksNeedingReRip = successfulResults.Count(r => r.RecommendReRip);

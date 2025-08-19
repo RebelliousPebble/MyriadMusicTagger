@@ -43,7 +43,7 @@ namespace MyriadMusicTagger.Utils
         /// </summary>
         /// <param name="progressCallback">Callback for progress updates (0.0 to 1.0)</param>
         /// <returns>List of basic media items</returns>
-        public async Task<List<BasicMediaItem>> GetAllSongsBasicAsync(Action<float>? progressCallback = null)
+    public async Task<List<BasicMediaItem>> GetAllSongsBasicAsync(Action<float>? progressCallback = null, System.Threading.CancellationToken cancellationToken = default)
         {
             Log.Information("Starting to retrieve basic song information from RES API at {BaseUrl}", _resClient.Options.BaseUrl);
             
@@ -62,6 +62,7 @@ namespace MyriadMusicTagger.Utils
 
             while (hasMoreResults)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 try
                 {
                     var request = new RestRequest("/api/Media/Search");
@@ -82,7 +83,7 @@ namespace MyriadMusicTagger.Utils
 
                     Log.Debug("Making API request for basic info batch starting at ID {StartId}", currentStartId);
 
-                    var response = await _resClient.ExecuteAsync(request);
+                    var response = await _resClient.ExecuteAsync(request, cancellationToken);
                     
                     if (!response.IsSuccessful || string.IsNullOrEmpty(response.Content))
                     {
@@ -296,7 +297,8 @@ namespace MyriadMusicTagger.Utils
         /// <returns>List of detailed media items</returns>
         public async Task<List<DetailedMediaItem>> GetDetailedMediaItemsBatchAsync(
             List<int> mediaIds, 
-            Action<float>? progressCallback = null)
+            Action<float>? progressCallback = null,
+            System.Threading.CancellationToken cancellationToken = default)
         {
             var detailedItems = new List<DetailedMediaItem>();
             var totalItems = mediaIds.Count;
@@ -309,22 +311,21 @@ namespace MyriadMusicTagger.Utils
             
             foreach (var mediaId in mediaIds)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var result = await GetDetailedMediaItemAsync(mediaId);
                 if (result != null)
                 {
                     detailedItems.Add(result);
                 }
-                
                 completedItems++;
                 if (progressCallback != null && totalItems > 0)
                 {
                     progressCallback((float)completedItems / totalItems);
                 }
-
                 // Add delay between requests to respect rate limits
                 if (completedItems < totalItems)
                 {
-                    await Task.Delay(delayBetweenRequests);
+                    await Task.Delay(delayBetweenRequests, cancellationToken);
                 }
             }
 

@@ -73,8 +73,16 @@ namespace MyriadMusicTagger.Core
         public void Initialize(AppSettings settings)
         {
             _currentSettings = settings ?? throw new ArgumentNullException(nameof(settings));
-            ApplySettings(_currentSettings);
-            _recentItemsManager.LoadRecentItems();
+            
+            try
+            {
+                ApplySettings(_currentSettings);
+                _recentItemsManager.LoadRecentItems();
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("Failed to initialize application with provided settings", ex);
+            }
         }
 
         /// <summary>
@@ -83,10 +91,19 @@ namespace MyriadMusicTagger.Core
         /// <param name="newSettings">New settings to apply</param>
         public void UpdateSettings(AppSettings newSettings)
         {
-            if (newSettings != null)
+            if (newSettings == null)
+            {
+                throw new ArgumentNullException(nameof(newSettings));
+            }
+            
+            try
             {
                 _currentSettings = newSettings;
                 ApplySettings(_currentSettings);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("Failed to update application settings", ex);
             }
         }
 
@@ -95,13 +112,54 @@ namespace MyriadMusicTagger.Core
         /// </summary>
         private void ApplySettings(AppSettings settings)
         {
-            // Configure AcoustID
-            Configuration.ClientKey = settings.AcoustIDClientKey;
-            
-            // Configure MusicBrainz
-            Query.DelayBetweenRequests = settings.DelayBetweenRequests;
+            try
+            {
+                // Configure AcoustID
+                ConfigureAcoustId(settings);
+                
+                // Configure MusicBrainz
+                ConfigureMusicBrainz(settings);
 
-            // Initialize services
+                // Initialize services
+                InitializeServices(settings);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("Failed to apply settings to application services", ex);
+            }
+        }
+
+        /// <summary>
+        /// Configures AcoustID with client key
+        /// </summary>
+        private static void ConfigureAcoustId(AppSettings settings)
+        {
+            if (string.IsNullOrWhiteSpace(settings.AcoustIDClientKey))
+            {
+                throw new InvalidOperationException("AcoustID Client Key is required but not provided");
+            }
+            
+            Configuration.ClientKey = settings.AcoustIDClientKey;
+        }
+
+        /// <summary>
+        /// Configures MusicBrainz delay settings
+        /// </summary>
+        private static void ConfigureMusicBrainz(AppSettings settings)
+        {
+            if (settings.DelayBetweenRequests < 0.2)
+            {
+                throw new InvalidOperationException("DelayBetweenRequests must be at least 0.2 seconds");
+            }
+            
+            Query.DelayBetweenRequests = settings.DelayBetweenRequests;
+        }
+
+        /// <summary>
+        /// Initializes all application services
+        /// </summary>
+        private void InitializeServices(AppSettings settings)
+        {
             _apiService = new MyriadApiService(settings);
             _itemProcessingService = new ItemProcessingService(_apiService);
             _batchProcessingService = new BatchProcessingService(_itemProcessingService);
